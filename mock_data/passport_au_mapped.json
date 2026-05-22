@@ -1,0 +1,60 @@
+{
+  "_comment": "Mock output of P5 (Field Mapping) for an Australian passport. This is the INPUT that P6 (Confidence Scoring) and P7 (Review) receive.",
+  "_source_image": "1.jpg",
+
+  "_id": "665a1b2c3d4e5f6a7b8c9d10",
+  "processing_id": "PRC-20260521-7H3K9F",
+  "doc_type": "passport_au",
+  "user_id": "665a1b2c3d4e5f6a7b8c9d00",
+
+  "extracted_fields": {
+    "document_no": "BN8038374",
+    "type": "P",
+    "country_code": "AUS",
+    "surname": "PEREZ",
+    "given_names": "LACHLAN",
+    "nationality": "AUSTRALIAN",
+    "date_of_birth": "2000-05-03",
+    "sex": "M",
+    "place_of_birth": "SYDNEY",
+    "date_of_issue": "2024-10-01",
+    "date_of_expiry": "2034-10-01",
+    "authority": "LONDON",
+    "mrz_line1": "P<AUSPEREZ<<LACHLAN<<<<<<<<<<<<<<<<<<<<<<<<<<",
+    "mrz_line2": "BN8038374<AUS000503M341001<<<<<<<<<<<<<<<<<<6"
+  },
+
+  "normalized_fields": {
+    "document_no": "BN8038374",
+    "type": "P",
+    "country_code": "AUS",
+    "surname": "Perez",
+    "given_names": "Lachlan",
+    "nationality": "AUS",
+    "date_of_birth": "2000-05-03",
+    "sex": "M",
+    "place_of_birth": "Sydney",
+    "date_of_issue": "2024-10-01",
+    "date_of_expiry": "2034-10-01",
+    "authority": "London",
+    "mrz_line1": "P<AUSPEREZ<<LACHLAN<<<<<<<<<<<<<<<<<<<<<<<<<<",
+    "mrz_line2": "BN8038374<AUS000503M341001<<<<<<<<<<<<<<<<<<6"
+  },
+
+  "validation_results": [
+    { "field_name": "document_no",    "rule": "regex_passport_au",   "passed": true,  "message": null },
+    { "field_name": "country_code",   "rule": "iso_3166_alpha3",     "passed": true,  "message": null },
+    { "field_name": "date_of_birth",  "rule": "is_iso_date",         "passed": true,  "message": null },
+    { "field_name": "date_of_birth",  "rule": "not_in_future",       "passed": true,  "message": null },
+    { "field_name": "date_of_expiry", "rule": "not_in_past",         "passed": true,  "message": null },
+    { "field_name": "date_of_expiry", "rule": "after_date_of_issue", "passed": true,  "message": null },
+    { "field_name": "sex",            "rule": "in_enum_m_f_x",       "passed": true,  "message": null },
+    { "field_name": "mrz_line1",      "rule": "mrz_checksum",        "passed": true,  "message": null },
+    { "field_name": "mrz_line2",      "rule": "mrz_checksum",        "passed": true,  "message": null }
+  ],
+
+  "missing_required_fields": [],
+  "mapping_status": "mapped",
+  "mapper_version": "1.0.0",
+  "mapped_at": "2026-05-21T10:14:28Z"
+}

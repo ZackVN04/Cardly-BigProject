@@ -1,0 +1,42 @@
+{
+  "_comment": "Mock output of P4 (OCR + AI Vision) for an Australian Medicare card. This is the INPUT that P5 (Field Mapping) receives.",
+  "_source_image": "2.jpg",
+  "_doc_type_reference": "medicare",
+
+  "processing_id": "PRC-20260521-8K4L2M",
+  "preprocessed_image_id": "665a1b2c3d4e5f6a7b8c9d02",
+
+  "ocr": {
+    "engine": "tesseract",
+    "ocr_version": "5.3.4",
+    "language_detected": "eng",
+    "overall_confidence": 0.91,
+    "raw_text": "medicare\n1234 56789 1\n1 JOHN A CITIZEN\nVALID TO 08/2016",
+    "blocks": [
+      { "text": "medicare",        "bbox": [880, 50,  240, 60], "confidence": 0.99 },
+      { "text": "1234",            "bbox": [220, 240, 130, 50], "confidence": 0.98 },
+      { "text": "56789",           "bbox": [370, 240, 160, 50], "confidence": 0.97 },
+      { "text": "1",               "bbox": [550, 240, 30,  50], "confidence": 0.96 },
+      { "text": "1",               "bbox": [70,  370, 20,  32], "confidence": 0.95 },
+      { "text": "JOHN",            "bbox": [110, 370, 80,  32], "confidence": 0.98 },
+      { "text": "A",               "bbox": [210, 370, 20,  32], "confidence": 0.99 },
+      { "text": "CITIZEN",         "bbox": [250, 370, 130, 32], "confidence": 0.98 },
+      { "text": "VALID TO",        "bbox": [820, 650, 130, 28], "confidence": 0.96 },
+      { "text": "08/2016",         "bbox": [970, 650, 110, 28], "confidence": 0.97 }
+    ]
+  },
+
+  "vision": {
+    "model_name": "gemini-1.5-pro",
+    "model_version": "001",
+    "doc_type": "medicare",
+    "doc_type_confidence": 0.99,
+    "detected_regions": [
+      { "label": "card_logo",       "bbox": [870, 30,  260, 100], "confidence": 0.99, "extra": {} },
+      { "label": "card_number",     "bbox": [200, 230, 400, 70],  "confidence": 0.98, "extra": { "format": "NNNN NNNNN N" } },
+      { "label": "irn_prefix",      "bbox": [70,  365, 25,  40],  "confidence": 0.96, "extra": { "description": "Individual Reference Number, the digit before the holder's name" } },
+      { "label": "holder_name",     "bbox": [105, 365, 290, 40],  "confidence": 0.97, "extra": {} },
+      { "label": "valid_to_label",  "bbox": [810, 645, 280, 40],  "confidence": 0.97, "extra": { "format": "MM/YYYY" } }
+    ]
+  }
+}

@@ -1,0 +1,245 @@
+// =============================================================
+// OCR Document Processing System - ERD (Eraser DSL)
+// =============================================================
+// HOW TO USE:
+//   1. Go to https://app.eraser.io
+//   2. Create a new diagram, choose "Entity Relationship Diagram"
+//   3. Copy & paste this entire file into the editor
+// =============================================================
+// NOTES:
+//   - 11 MongoDB collections, grouped by feature (P1 - P7).
+//   - All downstream collections correlate via `processing_id`.
+//   - PassportFields / MedicareFields / DriverLicenceFields are
+//     Pydantic value objects in code, NOT Mongo collections.
+//     They are shown here only to document the shape of
+//     `MappedDocument.extracted_fields` (Pattern A: one collection,
+//     doc_type as discriminator, strict typing at service layer).
+// =============================================================
+
+title OCR Document Processing System
+
+// -----------------------------------------------------------
+// P1 - AUTH & USER
+// -----------------------------------------------------------
+User [icon: user, color: blue] {
+  _id ObjectId pk
+  email string unique
+  password_hash string
+  full_name string
+  role enum
+  is_active boolean
+  created_at datetime
+  updated_at datetime
+}
+
+RefreshToken [icon: key, color: blue] {
+  _id ObjectId pk
+  user_id ObjectId fk
+  token_hash string unique
+  expires_at datetime
+  revoked boolean
+  created_at datetime
+}
+
+// -----------------------------------------------------------
+// P2 - IMAGE INTAKE & VALIDATION
+// -----------------------------------------------------------
+UploadedImage [icon: image, color: green] {
+  _id ObjectId pk
+  processing_id string unique
+  user_id ObjectId fk
+  original_filename string
+  storage_path string
+  mime_type string
+  file_size int
+  file_hash_sha256 string indexed
+  width int
+  height int
+  status enum
+  validation_errors array
+  uploaded_at datetime
+}
+
+// -----------------------------------------------------------
+// P3 - PRE-PROCESSING
+// -----------------------------------------------------------
+PreprocessedImage [icon: layers, color: green] {
+  _id ObjectId pk
+  processing_id string fk
+  source_image_id ObjectId fk
+  processed_storage_path string
+  resolution_dpi int
+  rotation_applied int
+  brightness_delta float
+  contrast_delta float
+  output_format string
+  preprocessing_status enum
+  steps_applied array
+  error_message string
+  processed_at datetime
+}
+
+// -----------------------------------------------------------
+// P4 - OCR + AI VISION
+// -----------------------------------------------------------
+OcrResult [icon: file-text, color: orange] {
+  _id ObjectId pk
+  processing_id string fk
+  preprocessed_image_id ObjectId fk
+  ocr_engine string
+  raw_text string
+  blocks array
+  overall_confidence float
+  language_detected string
+  ocr_version string
+  processed_at datetime
+}
+
+AiVisionResult [icon: eye, color: orange] {
+  _id ObjectId pk
+  processing_id string fk
+  preprocessed_image_id ObjectId fk
+  doc_type enum
+  doc_type_confidence float
+  detected_regions array
+  model_name string
+  model_version string
+  processed_at datetime
+}
+
+// -----------------------------------------------------------
+// P5 - BUSINESS FIELD MAPPING (Hui)
+// -----------------------------------------------------------
+// Single collection for all doc types. The `extracted_fields`
+// and `normalized_fields` objects follow the shape of one of
+// the three Pydantic schemas below (PassportFields,
+// MedicareFields, DriverLicenceFields), selected by `doc_type`.
+MappedDocument [icon: clipboard, color: purple] {
+  _id ObjectId pk
+  processing_id string fk unique
+  doc_type enum
+  user_id ObjectId fk
+  extracted_fields object
+  normalized_fields object
+  validation_results array
+  missing_required_fields array
+  mapping_status enum
+  mapper_version string
+  mapped_at datetime
+}
+
+// --- Pydantic value objects (NOT Mongo collections) ---
+PassportFields [icon: book, color: purple] {
+  document_no string
+  type string
+  country_code string
+  surname string
+  given_names string
+  nationality string
+  date_of_birth date
+  sex enum
+  place_of_birth string
+  date_of_issue date
+  date_of_expiry date
+  authority string
+  mrz_line1 string
+  mrz_line2 string
+}
+
+MedicareFields [icon: heart, color: purple] {
+  card_number string
+  irn int
+  full_name string
+  valid_to string
+}
+
+DriverLicenceFields [icon: id-card, color: purple] {
+  licence_no string
+  full_name string
+  address string
+  date_of_birth date
+  licence_expiry date
+  licence_type string
+  conditions string
+  state string
+}
+
+// -----------------------------------------------------------
+// P6 - CONFIDENCE SCORING & STORAGE
+// -----------------------------------------------------------
+ConfidenceReport [icon: bar-chart, color: red] {
+  _id ObjectId pk
+  processing_id string fk unique
+  mapped_document_id ObjectId fk
+  field_scores array
+  overall_score float
+  classification enum
+  flags object
+  failed_fields array
+  scored_at datetime
+}
+
+ProcessingHistory [icon: clock, color: red] {
+  _id ObjectId pk
+  processing_id string fk indexed
+  stage enum
+  status enum
+  details object
+  ocr_version string
+  ai_model_version string
+  duration_ms int
+  created_at datetime
+}
+
+// -----------------------------------------------------------
+// P7 - JSON REVIEW
+// -----------------------------------------------------------
+JsonReviewSession [icon: edit, color: teal] {
+  _id ObjectId pk
+  processing_id string fk
+  mapped_document_id ObjectId fk
+  user_id ObjectId fk
+  current_state object
+  edit_log array
+  validation_state enum
+  review_status enum
+  started_at datetime
+  confirmed_at datetime
+}
+
+FinalizedDocument [icon: check-circle, color: teal] {
+  _id ObjectId pk
+  processing_id string fk unique
+  user_id ObjectId fk
+  doc_type enum
+  final_json object
+  source_review_id ObjectId fk
+  confirmed_at datetime
+}
+
+// -----------------------------------------------------------
+// RELATIONSHIPS
+// -----------------------------------------------------------
+// User owns auth + business records
+User._id < RefreshToken.user_id
+User._id < UploadedImage.user_id
+User._id < MappedDocument.user_id
+User._id < JsonReviewSession.user_id
+User._id < FinalizedDocument.user_id
+
+// processing_id is the correlation key across the pipeline
+UploadedImage.processing_id < PreprocessedImage.processing_id
+UploadedImage.processing_id < OcrResult.processing_id
+UploadedImage.processing_id < AiVisionResult.processing_id
+UploadedImage.processing_id < MappedDocument.processing_id
+UploadedImage.processing_id < ConfidenceReport.processing_id
+UploadedImage.processing_id < ProcessingHistory.processing_id
+UploadedImage.processing_id < JsonReviewSession.processing_id
+UploadedImage.processing_id < FinalizedDocument.processing_id
+
+// Direct _id references for downstream lookups
+PreprocessedImage._id < OcrResult.preprocessed_image_id
+PreprocessedImage._id < AiVisionResult.preprocessed_image_id
+MappedDocument._id < ConfidenceReport.mapped_document_id
+MappedDocument._id < JsonReviewSession.mapped_document_id
+JsonReviewSession._id < FinalizedDocument.source_review_id

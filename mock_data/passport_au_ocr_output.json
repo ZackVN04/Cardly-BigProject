@@ -1,0 +1,49 @@
+{
+  "_comment": "Mock output of P4 (OCR + AI Vision) for an Australian passport. This is the INPUT that P5 (Field Mapping) receives.",
+  "_source_image": "1.jpg",
+  "_doc_type_reference": "passport_au",
+
+  "processing_id": "PRC-20260521-7H3K9F",
+  "preprocessed_image_id": "665a1b2c3d4e5f6a7b8c9d01",
+
+  "ocr": {
+    "engine": "tesseract",
+    "ocr_version": "5.3.4",
+    "language_detected": "eng",
+    "overall_confidence": 0.93,
+    "raw_text": "OBSERVATIONS\nThe document is valid for all countries\nunless of formoa evabroad (subject to the vise,\npermit or other entry requirements of each countrs).\n\nPASSPORT\nType / Type\nP\nCode of issuing / Code de l'\u00c9tat\nState AUS \u00e9metteur\nDocument No.\nBN8038374\nFamily name / Nom\nPEREZ\nGiven names / Pr\u00e9noms\nLACHLAN\nNationality / Nationalit\u00e9\nAUSTRALIAN\nDate of birth / Date de naissance\n2000-05-03\nSex / Sexe\nM\nPlace of birth / Lieu de naissance\nSYDNEY\nDate of issue / Date de d\u00e9livrance\n2024-10-01\nDate of expiry / Date d'expiration\n2034-10-01\nAuthority / Autorit\u00e9\nLONDON\nHolder's signature / Signature du titulaire\nLachlan Perez\nAUSTRALIA\nP<AUSPEREZ<<LACHLAN<<<<<<<<<<<<<<<<<<<<<<<<<<\nBN8038374<AUS000503M341001<<<<<<<<<<<<<<<<<<6",
+    "blocks": [
+      { "text": "PASSPORT",            "bbox": [80, 560, 180, 32], "confidence": 0.99 },
+      { "text": "P",                   "bbox": [310, 590, 12,  24], "confidence": 0.98 },
+      { "text": "AUS",                 "bbox": [420, 590, 50,  24], "confidence": 0.99 },
+      { "text": "BN8038374",           "bbox": [580, 590, 140, 24], "confidence": 0.99 },
+      { "text": "PEREZ",               "bbox": [310, 640, 90,  26], "confidence": 0.98 },
+      { "text": "LACHLAN",             "bbox": [310, 680, 120, 26], "confidence": 0.97 },
+      { "text": "AUSTRALIAN",          "bbox": [310, 720, 160, 24], "confidence": 0.96 },
+      { "text": "2000-05-03",          "bbox": [310, 760, 130, 24], "confidence": 0.95 },
+      { "text": "M",                   "bbox": [450, 760, 18,  24], "confidence": 0.99 },
+      { "text": "SYDNEY",              "bbox": [310, 800, 100, 24], "confidence": 0.94 },
+      { "text": "2024-10-01",          "bbox": [310, 840, 130, 24], "confidence": 0.95 },
+      { "text": "2034-10-01",          "bbox": [310, 880, 130, 24], "confidence": 0.95 },
+      { "text": "LONDON",              "bbox": [310, 920, 100, 24], "confidence": 0.92 },
+      { "text": "P<AUSPEREZ<<LACHLAN<<<<<<<<<<<<<<<<<<<<<<<<<<", "bbox": [40, 1010, 700, 24], "confidence": 0.98 },
+      { "text": "BN8038374<AUS000503M341001<<<<<<<<<<<<<<<<<<6", "bbox": [40, 1040, 700, 24], "confidence": 0.97 }
+    ]
+  },
+
+  "vision": {
+    "model_name": "gemini-1.5-pro",
+    "model_version": "001",
+    "doc_type": "passport_au",
+    "doc_type_confidence": 0.97,
+    "detected_regions": [
+      { "label": "face_photo_main",   "bbox": [40,  540, 220, 280], "confidence": 0.99, "extra": {} },
+      { "label": "face_photo_ghost",  "bbox": [580, 660, 60,  72],  "confidence": 0.96, "extra": {} },
+      { "label": "mrz_line_1",        "bbox": [40, 1010, 700, 24],  "confidence": 0.98, "extra": { "line": 1 } },
+      { "label": "mrz_line_2",        "bbox": [40, 1040, 700, 24],  "confidence": 0.98, "extra": { "line": 2 } },
+      { "label": "signature",         "bbox": [560, 920, 180, 50],  "confidence": 0.93, "extra": {} },
+      { "label": "document_number",   "bbox": [580, 590, 140, 24],  "confidence": 0.99, "extra": {} },
+      { "label": "country_emblem",    "bbox": [280, 540, 30,  30],  "confidence": 0.95, "extra": {} }
+    ]
+  }
+}

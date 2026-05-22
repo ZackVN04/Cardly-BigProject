@@ -1,0 +1,66 @@
+{
+  "_comment": "Mock full document state after P6 (Confidence Scoring) finishes. This is the response of GET /documents/{processing_id} and the INPUT that P7 (Review) starts from.",
+  "_source_image": "1.jpg",
+
+  "processing_id": "PRC-20260521-7H3K9F",
+  "status": "ready_for_review",
+  "doc_type": "passport_au",
+  "doc_type_confidence": 0.97,
+  "uploaded_at": "2026-05-21T10:14:22Z",
+  "processed_at": "2026-05-21T10:14:31Z",
+
+  "extracted_fields": {
+    "document_no": "BN8038374",
+    "type": "P",
+    "country_code": "AUS",
+    "surname": "PEREZ",
+    "given_names": "LACHLAN",
+    "nationality": "AUSTRALIAN",
+    "date_of_birth": "2000-05-03",
+    "sex": "M",
+    "place_of_birth": "SYDNEY",
+    "date_of_issue": "2024-10-01",
+    "date_of_expiry": "2034-10-01",
+    "authority": "LONDON"
+  },
+
+  "confidence": {
+    "overall_score": 0.94,
+    "classification": "low",
+    "field_scores": [
+      { "field_name": "document_no",     "score": 0.99, "classification": "high",   "auto_approved": true,  "note": null },
+      { "field_name": "type",            "score": 0.98, "classification": "high",   "auto_approved": true,  "note": null },
+      { "field_name": "country_code",    "score": 0.99, "classification": "high",   "auto_approved": true,  "note": null },
+      { "field_name": "surname",         "score": 0.98, "classification": "high",   "auto_approved": true,  "note": null },
+      { "field_name": "given_names",     "score": 0.97, "classification": "high",   "auto_approved": true,  "note": null },
+      { "field_name": "nationality",     "score": 0.96, "classification": "high",   "auto_approved": true,  "note": null },
+      { "field_name": "date_of_birth",   "score": 0.95, "classification": "high",   "auto_approved": true,  "note": null },
+      { "field_name": "sex",             "score": 0.99, "classification": "high",   "auto_approved": true,  "note": null },
+      { "field_name": "place_of_birth",  "score": 0.82, "classification": "low",    "auto_approved": false, "note": "Below high-confidence threshold" },
+      { "field_name": "date_of_issue",   "score": 0.95, "classification": "high",   "auto_approved": true,  "note": null },
+      { "field_name": "date_of_expiry",  "score": 0.95, "classification": "high",   "auto_approved": true,  "note": null },
+      { "field_name": "authority",       "score": 0.68, "classification": "failed", "auto_approved": false, "note": "Manual review required" }
+    ],
+    "failed_fields": ["authority"],
+    "requires_manual_review": true
+  },
+
+  "validation": {
+    "missing_required_fields": [],
+    "validation_results": [
+      { "field_name": "document_no",    "rule": "regex_passport_au",   "passed": true,  "message": null },
+      { "field_name": "country_code",   "rule": "iso_3166_alpha3",     "passed": true,  "message": null },
+      { "field_name": "date_of_birth",  "rule": "is_iso_date",         "passed": true,  "message": null },
+      { "field_name": "date_of_expiry", "rule": "not_in_past",         "passed": true,  "message": null }
+    ]
+  },
+
+  "processing_history": [
+    { "stage": "intake",              "status": "success", "duration_ms": 120,  "created_at": "2026-05-21T10:14:22Z" },
+    { "stage": "preprocess",          "status": "success", "duration_ms": 850,  "created_at": "2026-05-21T10:14:23Z" },
+    { "stage": "ocr",                 "status": "success", "duration_ms": 1840, "created_at": "2026-05-21T10:14:25Z" },
+    { "stage": "ai_vision",           "status": "success", "duration_ms": 2200, "created_at": "2026-05-21T10:14:27Z" },
+    { "stage": "field_mapping",       "status": "success", "duration_ms": 95,   "created_at": "2026-05-21T10:14:28Z" },
+    { "stage": "confidence_scoring",  "status": "success", "duration_ms": 45,   "created_at": "2026-05-21T10:14:29Z" }
+  ]
+}

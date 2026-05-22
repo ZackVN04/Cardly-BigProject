@@ -1,0 +1,54 @@
+{
+  "_comment": "Mock output of P4 (OCR + AI Vision) for a Victoria Australian driver licence. This is the INPUT that P5 (Field Mapping) receives.",
+  "_source_image": "3.jpg",
+  "_doc_type_reference": "driver_licence_vic",
+
+  "processing_id": "PRC-20260521-9P5N3Q",
+  "preprocessed_image_id": "665a1b2c3d4e5f6a7b8c9d03",
+
+  "ocr": {
+    "engine": "tesseract",
+    "ocr_version": "5.3.4",
+    "language_detected": "eng",
+    "overall_confidence": 0.89,
+    "raw_text": "DRIVER LICENCE\nVICTORIA AUSTRALIA\nLICENCE NO. 987654321\nJANE CITIZEN\nFLAT 10\n77 SAMPLE PARADE\nKEW EAST VIC 3102\nLICENCE EXPIRY 20-05-2019\nDATE OF BIRTH 29-07-1983\nLICENCE TYPE CAR\nCONDITIONS SBEAVXYZ\nvic roads",
+    "blocks": [
+      { "text": "DRIVER LICENCE",      "bbox": [140, 30,  280, 36], "confidence": 0.99 },
+      { "text": "VICTORIA AUSTRALIA",  "bbox": [140, 70,  280, 26], "confidence": 0.98 },
+      { "text": "LICENCE NO.",         "bbox": [430, 110, 130, 22], "confidence": 0.96 },
+      { "text": "987654321",           "bbox": [570, 110, 130, 26], "confidence": 0.97 },
+      { "text": "JANE CITIZEN",        "bbox": [30,  140, 180, 26], "confidence": 0.98 },
+      { "text": "FLAT 10",             "bbox": [30,  180, 90,  22], "confidence": 0.96 },
+      { "text": "77 SAMPLE PARADE",    "bbox": [30,  205, 220, 22], "confidence": 0.95 },
+      { "text": "KEW EAST VIC 3102",   "bbox": [30,  230, 220, 22], "confidence": 0.96 },
+      { "text": "LICENCE EXPIRY",      "bbox": [30,  280, 150, 22], "confidence": 0.97 },
+      { "text": "20-05-2019",          "bbox": [30,  305, 130, 26], "confidence": 0.96 },
+      { "text": "DATE OF BIRTH",       "bbox": [200, 280, 140, 22], "confidence": 0.97 },
+      { "text": "29-07-1983",          "bbox": [200, 305, 130, 26], "confidence": 0.97 },
+      { "text": "LICENCE TYPE",        "bbox": [30,  370, 130, 22], "confidence": 0.96 },
+      { "text": "CAR",                 "bbox": [30,  395, 60,  24], "confidence": 0.99 },
+      { "text": "CONDITIONS",          "bbox": [200, 370, 120, 22], "confidence": 0.95 },
+      { "text": "SBEAVXYZ",            "bbox": [200, 395, 130, 24], "confidence": 0.88 }
+    ]
+  },
+
+  "vision": {
+    "model_name": "gemini-1.5-pro",
+    "model_version": "001",
+    "doc_type": "driver_licence_vic",
+    "doc_type_confidence": 0.98,
+    "detected_regions": [
+      { "label": "state_header",      "bbox": [140, 20,  300, 80],  "confidence": 0.99, "extra": { "state": "VIC" } },
+      { "label": "licence_number",    "bbox": [430, 100, 280, 40],  "confidence": 0.97, "extra": {} },
+      { "label": "holder_name",       "bbox": [30,  135, 200, 30],  "confidence": 0.98, "extra": {} },
+      { "label": "address_block",     "bbox": [30,  175, 280, 80],  "confidence": 0.96, "extra": { "lines": 3 } },
+      { "label": "face_photo",        "bbox": [320, 140, 180, 220], "confidence": 0.99, "extra": {} },
+      { "label": "signature",         "bbox": [80,  430, 120, 50],  "confidence": 0.92, "extra": {} },
+      { "label": "expiry_date",       "bbox": [30,  300, 140, 30],  "confidence": 0.96, "extra": { "format": "DD-MM-YYYY" } },
+      { "label": "date_of_birth",     "bbox": [200, 300, 140, 30],  "confidence": 0.97, "extra": { "format": "DD-MM-YYYY" } },
+      { "label": "licence_type",      "bbox": [30,  390, 80,  30],  "confidence": 0.99, "extra": {} },
+      { "label": "conditions_codes",  "bbox": [200, 390, 140, 30],  "confidence": 0.88, "extra": { "description": "Concatenated condition letters" } },
+      { "label": "vicroads_logo",     "bbox": [350, 470, 150, 40],  "confidence": 0.99, "extra": {} }
+    ]
+  }
+}
