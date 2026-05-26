@@ -7,9 +7,9 @@
 # Each Collection below maps to a Beanie Document class.
 # =============================================================
 
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
-from typing import Optional, Any
+from typing import Optional, Any, Annotated
 from beanie import Document, Indexed, PydanticObjectId
 from pydantic import BaseModel, EmailStr, Field
 
@@ -95,7 +95,7 @@ class OtpPurpose(str, Enum):
 
 class User(Document):
     """Application user (uploader / reviewer / admin)."""
-    email: Indexed(EmailStr, unique=True)
+    email: Annotated[EmailStr, Indexed(unique=True)]
     password_hash: str
     full_name: str
     role: UserRole = UserRole.USER
@@ -103,8 +103,8 @@ class User(Document):
     email_verified: bool = False
     email_verified_at: Optional[datetime] = None
     verification_token: Optional[str] = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     class Settings:
         name = "users"
@@ -113,10 +113,10 @@ class User(Document):
 class RefreshToken(Document):
     """Hashed refresh tokens for JWT rotation."""
     user_id: PydanticObjectId
-    token_hash: Indexed(str, unique=True)
+    token_hash: Annotated[str, Indexed(unique=True)]
     expires_at: datetime
     revoked: bool = False
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     class Settings:
         name = "refresh_tokens"
@@ -131,7 +131,7 @@ class OtpToken(Document):
     purpose: OtpPurpose
     expires_at: datetime                    # created_at + 5 minutes
     used: bool = False
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     class Settings:
         name = "otp_tokens"
@@ -141,10 +141,10 @@ class LoginAttempt(Document):
     """Tracks failed login attempts for account lockout.
     After 5 consecutive failures, the account is locked for 60 seconds.
     """
-    email: Indexed(str)
+    email: Annotated[str, Indexed()]
     failed_count: int = 0
     locked_until: Optional[datetime] = None
-    last_attempt_at: datetime = Field(default_factory=datetime.utcnow)
+    last_attempt_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     class Settings:
         name = "login_attempts"
@@ -159,19 +159,19 @@ class UploadedImage(Document):
     The `processing_id` is the canonical correlation key used by every
     downstream collection (preprocess, OCR, mapping, confidence...).
     """
-    processing_id: Indexed(str, unique=True)
+    processing_id: Annotated[str, Indexed(unique=True)]
     user_id: PydanticObjectId
     original_filename: str
     storage_paths: list[str] = []           # paths / S3 keys to original files (e.g. [front, back])
     mime_type: str                          # image/jpeg | image/png | image/webp | application/pdf
     file_size: int                          # bytes; max 10 MB enforced in service
-    file_hash_sha256: Indexed(str)          # used for duplicate detection
+    file_hash_sha256: Annotated[str, Indexed()]          # used for duplicate detection
     width: Optional[int] = None
     height: Optional[int] = None
     status: ImageStatus = ImageStatus.RECEIVED
     quality_check: dict[str, Any] = {}      # quality metrics: {"tilt": float, "blur": float, "brightness": float}
     validation_errors: list[str] = []
-    uploaded_at: datetime = Field(default_factory=datetime.utcnow)
+    uploaded_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     class Settings:
         name = "uploaded_images"
@@ -183,7 +183,7 @@ class UploadedImage(Document):
 
 class PreprocessedImage(Document):
     """Post-preprocessing artifact. Original image is preserved unchanged."""
-    processing_id: Indexed(str)
+    processing_id: Annotated[str, Indexed()]
     source_image_id: PydanticObjectId
     processed_storage_path: str
     resolution_dpi: int                     # normalized to >= 300
@@ -194,7 +194,7 @@ class PreprocessedImage(Document):
     preprocessing_status: PreprocessingStatus = PreprocessingStatus.PENDING
     steps_applied: list[str] = []           # e.g. ["resize", "deskew", "contrast"]
     error_message: Optional[str] = None
-    processed_at: datetime = Field(default_factory=datetime.utcnow)
+    processed_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     class Settings:
         name = "preprocessed_images"
@@ -213,7 +213,7 @@ class OcrBlock(BaseModel):
 
 class OcrResult(Document):
     """Raw OCR output kept verbatim for audit / re-review."""
-    processing_id: Indexed(str)
+    processing_id: Annotated[str, Indexed()]
     preprocessed_image_id: PydanticObjectId
     ocr_engine: str                         # e.g. "tesseract" | "gemini"
     raw_text: str
@@ -221,7 +221,7 @@ class OcrResult(Document):
     overall_confidence: float
     language_detected: Optional[str] = None
     ocr_version: str
-    processed_at: datetime = Field(default_factory=datetime.utcnow)
+    processed_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     class Settings:
         name = "ocr_results"
@@ -237,14 +237,14 @@ class VisionRegion(BaseModel):
 
 class AiVisionResult(Document):
     """AI-Vision output: document classification + semantic regions."""
-    processing_id: Indexed(str)
+    processing_id: Annotated[str, Indexed()]
     preprocessed_image_id: PydanticObjectId
     doc_type: DocType
     doc_type_confidence: float
     detected_regions: list[VisionRegion] = []
     model_name: str                         # e.g. "gemini-3.1-pro"
     model_version: str
-    processed_at: datetime = Field(default_factory=datetime.utcnow)
+    processed_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     class Settings:
         name = "ai_vision_results"
@@ -287,7 +287,7 @@ class MappedDocument(Document):
     `normalized_fields` holds canonical values (trimmed strings,
     standardized phone format, lowercase email, etc.).
     """
-    processing_id: Indexed(str, unique=True)
+    processing_id: Annotated[str, Indexed(unique=True)]
     doc_type: DocType = DocType.BUSINESS_CARD
     user_id: PydanticObjectId
     
@@ -298,7 +298,7 @@ class MappedDocument(Document):
     missing_required_fields: list[str] = []
     mapping_status: MappingStatus = MappingStatus.PENDING
     mapper_version: str
-    mapped_at: datetime = Field(default_factory=datetime.utcnow)
+    mapped_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     class Settings:
         name = "mapped_documents"
@@ -318,14 +318,14 @@ class FieldConfidence(BaseModel):
 
 class ConfidenceReport(Document):
     """Per-document confidence summary used to gate downstream workflows."""
-    processing_id: Indexed(str, unique=True)
+    processing_id: Annotated[str, Indexed(unique=True)]
     mapped_document_id: PydanticObjectId
     field_scores: list[FieldConfidence]
     overall_score: float
     classification: ConfidenceClass
     flags: dict[str, bool] = {}             # e.g. {"requires_manual_review": True}
     failed_fields: list[str] = []
-    scored_at: datetime = Field(default_factory=datetime.utcnow)
+    scored_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     class Settings:
         name = "confidence_reports"
@@ -333,14 +333,14 @@ class ConfidenceReport(Document):
 
 class ProcessingHistory(Document):
     """Append-only audit log; one row per stage transition per processing_id."""
-    processing_id: Indexed(str)
+    processing_id: Annotated[str, Indexed()]
     stage: ProcessingStage
     status: StageStatus
     details: dict[str, Any] = {}
     ocr_version: Optional[str] = None
     ai_model_version: Optional[str] = None
     duration_ms: Optional[int] = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     class Settings:
         name = "processing_history"
@@ -355,12 +355,12 @@ class EditOperation(BaseModel):
     field_name: str
     old_value: Any
     new_value: Any
-    edited_at: datetime = Field(default_factory=datetime.utcnow)
+    edited_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class JsonReviewSession(Document):
     """A user-driven review/edit session over a MappedDocument."""
-    processing_id: Indexed(str)
+    processing_id: Annotated[str, Indexed()]
     mapped_document_id: PydanticObjectId
     user_id: PydanticObjectId
     current_state: dict[str, Any]           # mutable JSON the user is editing (BusinessCardFields shape)
@@ -374,7 +374,7 @@ class JsonReviewSession(Document):
     meeting_date: Optional[datetime] = None
     custom_tags: list[str] = []
     
-    started_at: datetime = Field(default_factory=datetime.utcnow)
+    started_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     confirmed_at: Optional[datetime] = None
 
     class Settings:
@@ -383,7 +383,7 @@ class JsonReviewSession(Document):
 
 class FinalizedDocument(Document):
     """Immutable final JSON after user confirmation; this is the deliverable."""
-    processing_id: Indexed(str, unique=True)
+    processing_id: Annotated[str, Indexed(unique=True)]
     user_id: PydanticObjectId
     doc_type: DocType = DocType.BUSINESS_CARD
     final_json: dict[str, Any]              # finalized fields (BusinessCardFields shape)
@@ -395,7 +395,7 @@ class FinalizedDocument(Document):
     custom_tags: list[str] = []
     
     source_review_id: PydanticObjectId
-    confirmed_at: datetime = Field(default_factory=datetime.utcnow)
+    confirmed_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     class Settings:
         name = "finalized_documents"
