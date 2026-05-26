@@ -8,8 +8,6 @@ __pycache__/
 dist/
 build/
 *.egg-info/
-.venv/
-venv/
 /tmp/ocr_uploads/
 *.log
 .DS_Store

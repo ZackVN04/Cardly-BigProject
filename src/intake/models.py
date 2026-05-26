@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Optional
 
@@ -33,7 +33,7 @@ class UploadedImage(Document):
     height: Optional[int] = None
     status: ImageStatus = ImageStatus.RECEIVED
     validation_errors: list[str] = []
-    uploaded_at: datetime = Field(default_factory=datetime.utcnow)
+    uploaded_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     # Non-persistent field for API responses (not saved to MongoDB)
     file_url: Optional[str] = Field(default=None, exclude=True)

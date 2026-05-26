@@ -1,4 +1,3 @@
-# TODO(P5 — Hui): Implement map_document_fields entry point
 from src.common.enums import DocType
 from src.mapping.models import MappedDocument
 
@@ -20,15 +19,11 @@ async def map_document_fields(
       5. Persist and return MappedDocument
     """
     from src.mapping import constants as mapping_constants
-    from src.mapping.mappers.passport_au import PassportMapper
-    from src.mapping.mappers.medicare import MedicareMapper
-    from src.mapping.mappers.driver_licence_vic import DriverLicenceMapper
+    from src.mapping.mappers.business_card import BusinessCardMapper
     from src.mapping import normalizers, validators
 
     mapper_map = {
-        DocType.PASSPORT_AU: PassportMapper,
-        DocType.MEDICARE: MedicareMapper,
-        DocType.DRIVER_LICENCE_VIC: DriverLicenceMapper,
+        DocType.BUSINESS_CARD: BusinessCardMapper,
     }
 
     mapper_cls = mapper_map.get(doc_type)

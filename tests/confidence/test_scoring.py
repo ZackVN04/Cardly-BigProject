@@ -15,26 +15,26 @@ def _business_card_scores(validation_results=None):
     return build_field_scores(
         document_type=DocType.BUSINESS_CARD,
         normalized_fields={
-            "full_name": "Nguyen Van A",
+            "name": "Nguyen Van A",
             "position": "Backend Developer",
             "company": "ABC Tech",
             "phone": "0909123456",
             "email": "vana@abc.com",
-            "website": "abc.com",
+            "web": "abc.com",
         },
         validation_results=validation_results
         or {
             "email": {"status": "passed", "errors": []},
             "phone": {"status": "passed", "errors": []},
-            "website": {"status": "passed", "errors": []},
+            "web": {"status": "passed", "errors": []},
         },
         field_block_refs={
-            "full_name": ["block_001"],
+            "name": ["block_001"],
             "position": ["block_002"],
             "company": ["block_003"],
             "email": ["block_004"],
             "phone": ["block_005"],
-            "website": ["block_006"],
+            "web": ["block_006"],
         },
         ocr_blocks=[
             {"id": "block_001", "text": "Nguyen Van A", "confidence": 0.88},
@@ -70,16 +70,16 @@ async def test_failed_confidence_blocked():
     field_scores = build_field_scores(
         document_type=DocType.BUSINESS_CARD,
         normalized_fields={
-            "full_name": "Nguyen Van A",
+            "name": "Nguyen Van A",
             "position": "Backend Developer",
             "company": "ABC Tech",
             "phone": "0909123456",
             "email": "vana@abc.com",
-            "website": None,
+            "web": None,
         },
         validation_results={},
         field_block_refs={
-            "full_name": ["block_001"],
+            "name": ["block_001"],
             "position": ["block_002"],
             "company": ["block_003"],
             "email": ["block_004"],
@@ -95,22 +95,22 @@ async def test_failed_confidence_blocked():
     )
     field_scores = {field.field_name: field for field in field_scores}
 
-    assert field_scores["website"].value is None
-    assert field_scores["website"].score == 0.0
-    assert field_scores["website"].classification == ConfidenceClass.FAILED
-    assert field_scores["website"].requires_manual_review is True
+    assert field_scores["web"].value is None
+    assert field_scores["web"].score == 0.0
+    assert field_scores["web"].classification == ConfidenceClass.FAILED
+    assert field_scores["web"].requires_manual_review is True
 
 
 def test_business_card_only_scores_six_fixed_fields():
     field_names = [field.field_name for field in _business_card_scores()]
 
     assert field_names == [
-        "full_name",
+        "name",
         "position",
         "company",
         "phone",
         "email",
-        "website",
+        "web",
     ]
 
 
