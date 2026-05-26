@@ -22,8 +22,8 @@ class UploadedImage(Document):
     `processing_id` is the canonical correlation key used by every downstream collection.
     """
 
-    processing_id: Indexed(str, unique=True)  # type: ignore[valid-type]
-    user_id: PydanticObjectId
+    processing_id: Indexed(str)  # type: ignore[valid-type]
+    user_id: Optional[PydanticObjectId] = None
     original_filename: str
     storage_path: str
     mime_type: str
@@ -34,6 +34,9 @@ class UploadedImage(Document):
     status: ImageStatus = ImageStatus.RECEIVED
     validation_errors: list[str] = []
     uploaded_at: datetime = Field(default_factory=datetime.utcnow)
+
+    # Non-persistent field for API responses (not saved to MongoDB)
+    file_url: Optional[str] = Field(default=None, exclude=True)
 
     class Settings:
         name = "uploaded_images"
