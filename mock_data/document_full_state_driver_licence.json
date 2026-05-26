@@ -1,0 +1,57 @@
+{
+  "_comment": "Mock full document state after P6 (Confidence Scoring) for a Driver Licence. Response of GET /documents/{processing_id} for 3.jpg.",
+  "_source_image": "3.jpg",
+
+  "processing_id": "PRC-20260521-9P5N3Q",
+  "status": "ready_for_review",
+  "doc_type": "driver_licence_vic",
+  "doc_type_confidence": 0.99,
+  "uploaded_at": "2026-05-21T10:16:11Z",
+  "processed_at": "2026-05-21T10:16:22Z",
+
+  "extracted_fields": {
+    "licence_no": "98765432",
+    "full_name": "JANE DOE",
+    "address": "123 PLAYGROUND RD, MELBOURNE VIC 3000",
+    "date_of_birth": "1985-11-23",
+    "licence_expiry": "2019-05-20",
+    "licence_type": "CAR",
+    "conditions": "S B",
+    "state": "VIC"
+  },
+
+  "confidence": {
+    "overall_score": 0.95,
+    "classification": "high",
+    "field_scores": [
+      { "field_name": "licence_no",    "score": 0.98, "classification": "high", "auto_approved": true,  "note": null },
+      { "field_name": "full_name",     "score": 0.97, "classification": "high", "auto_approved": true,  "note": null },
+      { "field_name": "address",       "score": 0.88, "classification": "low",  "auto_approved": false, "note": "Complex multi-line string" },
+      { "field_name": "date_of_birth",  "score": 0.96, "classification": "high", "auto_approved": true,  "note": null },
+      { "field_name": "licence_expiry", "score": 0.95, "classification": "high", "auto_approved": true,  "note": null },
+      { "field_name": "licence_type",   "score": 0.99, "classification": "high", "auto_approved": true,  "note": null },
+      { "field_name": "conditions",     "score": 0.95, "classification": "high", "auto_approved": true,  "note": null },
+      { "field_name": "state",          "score": 0.99, "classification": "high", "auto_approved": true,  "note": null }
+    ],
+    "failed_fields": [],
+    "requires_manual_review": true
+  },
+
+  "validation": {
+    "missing_required_fields": [],
+    "validation_results": [
+      { "field_name": "licence_no",     "rule": "regex_driver_licence_vic", "passed": true,  "message": null },
+      { "field_name": "date_of_birth",  "rule": "is_iso_date",               "passed": true,  "message": null },
+      { "field_name": "licence_expiry", "rule": "not_in_past",               "passed": false, "message": "Driver licence is expired since 2019-05-20" }
+    ]
+  },
+
+  "processing_history": [
+    { "stage": "intake",             "status": "success", "duration_ms": 130,  "created_at": "2026-05-21T10:16:11Z" },
+    { "stage": "preprocess",         "status": "success", "duration_ms": 920,  "created_at": "2026-05-21T10:16:13Z" },
+    { "stage": "ocr",                "status": "success", "duration_ms": 1950, "created_at": "2026-05-21T10:16:15Z" },
+    { "stage": "ai_vision",          "status": "success", "duration_ms": 2350, "created_at": "2026-05-21T10:16:18Z" },
+    { "stage": "field_mapping",      "status": "success", "duration_ms": 90,   "created_at": "2026-05-21T10:16:19Z" },
+    { "stage": "confidence_scoring", "status": "success", "duration_ms": 50,   "created_at": "2026-05-21T10:16:20Z" }
+  ]
+}

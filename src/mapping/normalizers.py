@@ -27,7 +27,7 @@ def normalize_date(value: str | None) -> str | None:
     for pattern, fmt in DATE_PATTERNS:
         if re.fullmatch(pattern, value, re.IGNORECASE):
             try:
-                return datetime.strptime(value.upper(), fmt.upper()).strftime("%Y-%m-%d")
+                return datetime.strptime(value, fmt).strftime("%Y-%m-%d")
             except ValueError:
                 continue
     return value

@@ -1,0 +1,117 @@
+{
+  "_comment": "Mock data and API payloads for Feature P2: Image Intake & Validation.",
+  "upload": {
+    "response_202": {
+      "processing_id": "PRC-20260521-7H3K9F",
+      "status": "received",
+      "uploaded_at": "2026-05-21T10:14:22Z"
+    },
+    "response_422_invalid_mime": {
+      "detail": [
+        {
+          "type": "value_error",
+          "loc": ["body", "file"],
+          "msg": "Unsupported file format. Only JPG, PNG, WEBP, and PDF are allowed.",
+          "input": null
+        }
+      ]
+    },
+    "response_422_oversize": {
+      "detail": [
+        {
+          "type": "value_error",
+          "loc": ["body", "file"],
+          "msg": "File size exceeds the 10 MB limit.",
+          "input": null
+        }
+      ]
+    }
+  },
+  "list_documents": {
+    "response_200": {
+      "items": [
+        {
+          "id": "665a1b2c3d4e5f6a7b8c9d01",
+          "processing_id": "PRC-20260521-7H3K9F",
+          "original_filename": "passport_copy.jpg",
+          "mime_type": "image/jpeg",
+          "file_size": 221267,
+          "status": "ready_for_review",
+          "doc_type": "passport_au",
+          "uploaded_at": "2026-05-21T10:14:22Z"
+        },
+        {
+          "id": "665a1b2c3d4e5f6a7b8c9d02",
+          "processing_id": "PRC-20260521-8K4L2M",
+          "original_filename": "medicare_card.png",
+          "mime_type": "image/png",
+          "file_size": 149994,
+          "status": "ready_for_review",
+          "doc_type": "medicare",
+          "uploaded_at": "2026-05-21T10:15:05Z"
+        },
+        {
+          "id": "665a1b2c3d4e5f6a7b8c9d03",
+          "processing_id": "PRC-20260521-9P5N3Q",
+          "original_filename": "driver_licence.webp",
+          "mime_type": "image/webp",
+          "file_size": 323934,
+          "status": "ready_for_review",
+          "doc_type": "driver_licence_vic",
+          "uploaded_at": "2026-05-21T10:16:11Z"
+        }
+      ],
+      "total": 3,
+      "page": 1,
+      "size": 10,
+      "pages": 1
+    }
+  },
+  "database_documents": {
+    "passport_uploaded_image": {
+      "_id": { "$oid": "665a1b2c3d4e5f6a7b8c9d01" },
+      "processing_id": "PRC-20260521-7H3K9F",
+      "user_id": { "$oid": "665a1b2c3d4e5f6a7b8c9d00" },
+      "original_filename": "passport_copy.jpg",
+      "storage_path": "uploads/20260521/PRC-20260521-7H3K9F_orig.jpg",
+      "mime_type": "image/jpeg",
+      "file_size": 221267,
+      "file_hash_sha256": "4b2c129e92bf181a4d9ef652a23e9818e3812a101f3e7920ab29a997ef8bde22",
+      "width": 1200,
+      "height": 1600,
+      "status": "processed",
+      "validation_errors": [],
+      "uploaded_at": { "$date": "2026-05-21T10:14:22Z" }
+    },
+    "medicare_uploaded_image": {
+      "_id": { "$oid": "665a1b2c3d4e5f6a7b8c9d02" },
+      "processing_id": "PRC-20260521-8K4L2M",
+      "user_id": { "$oid": "665a1b2c3d4e5f6a7b8c9d00" },
+      "original_filename": "medicare_card.png",
+      "storage_path": "uploads/20260521/PRC-20260521-8K4L2M_orig.png",
+      "mime_type": "image/png",
+      "file_size": 149994,
+      "file_hash_sha256": "8a3cf82ee3310034a7479ab293cd1e389e1a8cf218f293cdba4b1efbc9901e1d",
+      "width": 1024,
+      "height": 768,
+      "status": "processed",
+      "validation_errors": [],
+      "uploaded_at": { "$date": "2026-05-21T10:15:05Z" }
+    },
+    "licence_uploaded_image": {
+      "_id": { "$oid": "665a1b2c3d4e5f6a7b8c9d03" },
+      "processing_id": "PRC-20260521-9P5N3Q",
+      "user_id": { "$oid": "665a1b2c3d4e5f6a7b8c9d00" },
+      "original_filename": "driver_licence.webp",
+      "storage_path": "uploads/20260521/PRC-20260521-9P5N3Q_orig.webp",
+      "mime_type": "image/webp",
+      "file_size": 323934,
+      "file_hash_sha256": "ef23ab67cfbcae91209b5dc71efca39e1a2f6ebca098eefca1aefbe71efbca12",
+      "width": 800,
+      "height": 600,
+      "status": "processed",
+      "validation_errors": [],
+      "uploaded_at": { "$date": "2026-05-21T10:16:11Z" }
+    }
+  }
+}

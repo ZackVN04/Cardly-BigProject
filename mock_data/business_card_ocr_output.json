@@ -1,0 +1,40 @@
+{
+  "_comment": "Mock output of P4 (OCR + AI Vision) for a Business Card. This is the INPUT that P5 (Field Mapping) receives.",
+  "_source_image": "business_card.jpg",
+  "_doc_type_reference": "business_card",
+
+  "processing_id": "PRC-20260521-5B2C3D",
+  "preprocessed_image_id": "665a1b2c3d4e5f6a7b8c9d11",
+
+  "ocr": {
+    "engine": "gemini-2.0-flash",
+    "ocr_version": "2.0",
+    "language_detected": "vie",
+    "overall_confidence": 0.96,
+    "raw_text": "TECH SOLUTIONS JSC\nNguyễn Văn A\nKỹ sư phần mềm\nĐiện thoại: +84 912 345 678\nEmail: nguyen.vana@company.com\nWebsite: www.company.com\nĐịa chỉ: Tòa nhà Tech, Hà Nội",
+    "blocks": [
+      { "text": "TECH SOLUTIONS JSC",          "bbox": [50, 40, 300, 30], "confidence": 0.98 },
+      { "text": "Nguyễn Văn A",                "bbox": [50, 90, 200, 28], "confidence": 0.99 },
+      { "text": "Kỹ sư phần mềm",              "bbox": [50, 130, 150, 20], "confidence": 0.97 },
+      { "text": "Điện thoại: +84 912 345 678", "bbox": [50, 180, 280, 18], "confidence": 0.95 },
+      { "text": "Email: nguyen.vana@company.com", "bbox": [50, 210, 290, 18], "confidence": 0.99 },
+      { "text": "Website: www.company.com",    "bbox": [50, 240, 250, 18], "confidence": 0.96 },
+      { "text": "Địa chỉ: Tòa nhà Tech, Hà Nội", "bbox": [50, 270, 320, 18], "confidence": 0.94 }
+    ]
+  },
+
+  "vision": {
+    "model_name": "gemini-2.0-flash",
+    "model_version": "001",
+    "doc_type": "business_card",
+    "doc_type_confidence": 0.99,
+    "detected_regions": [
+      { "label": "company",  "bbox": [50, 40, 300, 30], "confidence": 0.98, "extra": {} },
+      { "label": "name",     "bbox": [50, 90, 200, 28], "confidence": 0.99, "extra": {} },
+      { "label": "position", "bbox": [50, 130, 150, 20], "confidence": 0.97, "extra": {} },
+      { "label": "phone",    "bbox": [50, 180, 280, 18], "confidence": 0.95, "extra": {} },
+      { "label": "email",    "bbox": [50, 210, 290, 18], "confidence": 0.99, "extra": {} },
+      { "label": "web",      "bbox": [50, 240, 250, 18], "confidence": 0.96, "extra": {} }
+    ]
+  }
+}
