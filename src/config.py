@@ -4,7 +4,11 @@ from src.constants import Environment
 
 
 class Config(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
 
     ENVIRONMENT: Environment = Environment.LOCAL
     APP_VERSION: str = "1.0.0"

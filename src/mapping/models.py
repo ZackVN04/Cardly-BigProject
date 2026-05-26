@@ -2,8 +2,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any
 
-from beanie import Document, Indexed
-from beanie import PydanticObjectId
+from beanie import Document, Indexed, PydanticObjectId
 from pydantic import BaseModel, Field
 
 from src.common.enums import DocType
@@ -37,6 +36,7 @@ class MappedDocument(Document):
     extracted_fields: dict[str, Any]
     normalized_fields: dict[str, Any]
     validation_results: list[FieldValidationResult] = []
+    field_block_refs: dict[str, list[str]] = {}
     missing_required_fields: list[str] = []
     mapping_status: MappingStatus = MappingStatus.PENDING
     mapper_version: str
