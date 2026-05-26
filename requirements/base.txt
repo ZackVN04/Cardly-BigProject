@@ -10,6 +10,8 @@ python-multipart==0.0.9
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
 httpx==0.27.2
+pymongo==4.8.0
+google-cloud-storage>=2.14.0
 
 google-genai
 paddleocr==2.8.0
