@@ -1,0 +1,65 @@
+{
+  "_comment": "Mock database documents for Feature P3: Image Pre-processing.",
+  "database_documents": {
+    "passport_preprocessed_image": {
+      "_id": { "$oid": "665a1b2c3d4e5f6a7b8c9d06" },
+      "processing_id": "PRC-20260521-7H3K9F",
+      "source_image_id": { "$oid": "665a1b2c3d4e5f6a7b8c9d01" },
+      "processed_storage_path": "preprocessed/20260521/PRC-20260521-7H3K9F_proc.png",
+      "resolution_dpi": 300,
+      "rotation_applied": 90,
+      "brightness_delta": 0.0,
+      "contrast_delta": 0.15,
+      "output_format": "png",
+      "preprocessing_status": "success",
+      "steps_applied": ["rotate_90", "normalize_dpi", "increase_contrast"],
+      "error_message": null,
+      "processed_at": { "$date": "2026-05-21T10:14:23Z" }
+    },
+    "medicare_preprocessed_image": {
+      "_id": { "$oid": "665a1b2c3d4e5f6a7b8c9d07" },
+      "processing_id": "PRC-20260521-8K4L2M",
+      "source_image_id": { "$oid": "665a1b2c3d4e5f6a7b8c9d02" },
+      "processed_storage_path": "preprocessed/20260521/PRC-20260521-8K4L2M_proc.png",
+      "resolution_dpi": 300,
+      "rotation_applied": 0,
+      "brightness_delta": 0.1,
+      "contrast_delta": 0.0,
+      "output_format": "png",
+      "preprocessing_status": "success",
+      "steps_applied": ["normalize_dpi", "auto_brighten"],
+      "error_message": null,
+      "processed_at": { "$date": "2026-05-21T10:15:06Z" }
+    },
+    "licence_preprocessed_image": {
+      "_id": { "$oid": "665a1b2c3d4e5f6a7b8c9d08" },
+      "processing_id": "PRC-20260521-9P5N3Q",
+      "source_image_id": { "$oid": "665a1b2c3d4e5f6a7b8c9d03" },
+      "processed_storage_path": "preprocessed/20260521/PRC-20260521-9P5N3Q_proc.png",
+      "resolution_dpi": 300,
+      "rotation_applied": 180,
+      "brightness_delta": -0.05,
+      "contrast_delta": 0.2,
+      "output_format": "png",
+      "preprocessing_status": "success",
+      "steps_applied": ["rotate_180", "normalize_dpi", "increase_contrast", "sharpen"],
+      "error_message": null,
+      "processed_at": { "$date": "2026-05-21T10:16:13Z" }
+    },
+    "failed_preprocessing_image": {
+      "_id": { "$oid": "665a1b2c3d4e5f6a7b8c9d09" },
+      "processing_id": "PRC-20260521-X9999X",
+      "source_image_id": { "$oid": "665a1b2c3d4e5f6a7b8c9d99" },
+      "processed_storage_path": "",
+      "resolution_dpi": 72,
+      "rotation_applied": 0,
+      "brightness_delta": 0.0,
+      "contrast_delta": 0.0,
+      "output_format": "png",
+      "preprocessing_status": "failed",
+      "steps_applied": [],
+      "error_message": "ImageDistorted: Exceeded max warp perspective delta",
+      "processed_at": { "$date": "2026-05-21T10:20:00Z" }
+    }
+  }
+}

@@ -1,0 +1,49 @@
+{
+  "_comment": "Mock full document state after P6 (Confidence Scoring) for a Medicare card. Response of GET /documents/{processing_id} for 2.jpg.",
+  "_source_image": "2.jpg",
+
+  "processing_id": "PRC-20260521-8K4L2M",
+  "status": "ready_for_review",
+  "doc_type": "medicare",
+  "doc_type_confidence": 0.98,
+  "uploaded_at": "2026-05-21T10:15:05Z",
+  "processed_at": "2026-05-21T10:15:15Z",
+
+  "extracted_fields": {
+    "card_number": "2234567891",
+    "irn": 1,
+    "full_name": "JOHN CITIZEN",
+    "valid_to": "08/2016"
+  },
+
+  "confidence": {
+    "overall_score": 0.96,
+    "classification": "high",
+    "field_scores": [
+      { "field_name": "card_number", "score": 0.98, "classification": "high", "auto_approved": true, "note": null },
+      { "field_name": "irn",         "score": 0.95, "classification": "high", "auto_approved": true, "note": null },
+      { "field_name": "full_name",   "score": 0.97, "classification": "high", "auto_approved": true, "note": null },
+      { "field_name": "valid_to",    "score": 0.94, "classification": "low",  "auto_approved": false, "note": "Slightly below high threshold" }
+    ],
+    "failed_fields": [],
+    "requires_manual_review": true
+  },
+
+  "validation": {
+    "missing_required_fields": [],
+    "validation_results": [
+      { "field_name": "card_number", "rule": "medicare_luhn_checksum", "passed": true,  "message": null },
+      { "field_name": "card_number", "rule": "is_10_digits",           "passed": true,  "message": null },
+      { "field_name": "valid_to",    "rule": "not_in_past",             "passed": false, "message": "Medicare card is expired since 08/2016" }
+    ]
+  },
+
+  "processing_history": [
+    { "stage": "intake",             "status": "success", "duration_ms": 110,  "created_at": "2026-05-21T10:15:05Z" },
+    { "stage": "preprocess",         "status": "success", "duration_ms": 780,  "created_at": "2026-05-21T10:15:06Z" },
+    { "stage": "ocr",                "status": "success", "duration_ms": 1720, "created_at": "2026-05-21T10:15:08Z" },
+    { "stage": "ai_vision",          "status": "success", "duration_ms": 2100, "created_at": "2026-05-21T10:15:10Z" },
+    { "stage": "field_mapping",      "status": "success", "duration_ms": 85,   "created_at": "2026-05-21T10:15:11Z" },
+    { "stage": "confidence_scoring", "status": "success", "duration_ms": 40,   "created_at": "2026-05-21T10:15:12Z" }
+  ]
+}

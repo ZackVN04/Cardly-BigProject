@@ -1,22 +1,14 @@
 // =============================================================
-// OCR Document Processing System - ERD (Eraser DSL)
+// Cardly — AI-Powered Business Card Scanner & Smart Contact Forge
+// Entity Relationship Diagram (Eraser DSL)
 // =============================================================
 // HOW TO USE:
 //   1. Go to https://app.eraser.io
 //   2. Create a new diagram, choose "Entity Relationship Diagram"
 //   3. Copy & paste this entire file into the editor
 // =============================================================
-// NOTES:
-//   - 11 MongoDB collections, grouped by feature (P1 - P7).
-//   - All downstream collections correlate via `processing_id`.
-//   - PassportFields / MedicareFields / DriverLicenceFields are
-//     Pydantic value objects in code, NOT Mongo collections.
-//     They are shown here only to document the shape of
-//     `MappedDocument.extracted_fields` (Pattern A: one collection,
-//     doc_type as discriminator, strict typing at service layer).
-// =============================================================
 
-title OCR Document Processing System
+title Cardly — Business Card Scanner System
 
 // -----------------------------------------------------------
 // P1 - AUTH & USER
@@ -28,6 +20,9 @@ User [icon: user, color: blue] {
   full_name string
   role enum
   is_active boolean
+  email_verified boolean
+  email_verified_at datetime
+  verification_token string
   created_at datetime
   updated_at datetime
 }
@@ -41,6 +36,24 @@ RefreshToken [icon: key, color: blue] {
   created_at datetime
 }
 
+OtpToken [icon: lock, color: blue] {
+  _id ObjectId pk
+  user_id ObjectId fk
+  otp_hash string
+  purpose enum
+  expires_at datetime
+  used boolean
+  created_at datetime
+}
+
+LoginAttempt [icon: alert-triangle, color: blue] {
+  _id ObjectId pk
+  email string indexed
+  failed_count int
+  locked_until datetime
+  last_attempt_at datetime
+}
+
 // -----------------------------------------------------------
 // P2 - IMAGE INTAKE & VALIDATION
 // -----------------------------------------------------------
@@ -49,13 +62,14 @@ UploadedImage [icon: image, color: green] {
   processing_id string unique
   user_id ObjectId fk
   original_filename string
-  storage_path string
+  storage_paths array
   mime_type string
   file_size int
   file_hash_sha256 string indexed
   width int
   height int
   status enum
+  quality_check object
   validation_errors array
   uploaded_at datetime
 }
@@ -108,12 +122,8 @@ AiVisionResult [icon: eye, color: orange] {
 }
 
 // -----------------------------------------------------------
-// P5 - BUSINESS FIELD MAPPING (Hui)
+// P5 - BUSINESS FIELD MAPPING
 // -----------------------------------------------------------
-// Single collection for all doc types. The `extracted_fields`
-// and `normalized_fields` objects follow the shape of one of
-// the three Pydantic schemas below (PassportFields,
-// MedicareFields, DriverLicenceFields), selected by `doc_type`.
 MappedDocument [icon: clipboard, color: purple] {
   _id ObjectId pk
   processing_id string fk unique
@@ -128,40 +138,18 @@ MappedDocument [icon: clipboard, color: purple] {
   mapped_at datetime
 }
 
-// --- Pydantic value objects (NOT Mongo collections) ---
-PassportFields [icon: book, color: purple] {
-  document_no string
-  type string
-  country_code string
-  surname string
-  given_names string
-  nationality string
-  date_of_birth date
-  sex enum
-  place_of_birth string
-  date_of_issue date
-  date_of_expiry date
-  authority string
-  mrz_line1 string
-  mrz_line2 string
-}
-
-MedicareFields [icon: heart, color: purple] {
-  card_number string
-  irn int
-  full_name string
-  valid_to string
-}
-
-DriverLicenceFields [icon: id-card, color: purple] {
-  licence_no string
-  full_name string
-  address string
-  date_of_birth date
-  licence_expiry date
-  licence_type string
-  conditions string
-  state string
+// --- Pydantic value object (NOT a Mongo collection) ---
+BusinessCardFields [icon: credit-card, color: purple] {
+  name string
+  phone string
+  email string
+  web string
+  position string
+  company string
+  industry string
+  summary string
+  keywords array
+  highlights array
 }
 
 // -----------------------------------------------------------
@@ -203,6 +191,10 @@ JsonReviewSession [icon: edit, color: teal] {
   edit_log array
   validation_state enum
   review_status enum
+  event_name string
+  location string
+  meeting_date datetime
+  custom_tags array
   started_at datetime
   confirmed_at datetime
 }
@@ -213,6 +205,10 @@ FinalizedDocument [icon: check-circle, color: teal] {
   user_id ObjectId fk
   doc_type enum
   final_json object
+  event_name string
+  location string
+  meeting_date datetime
+  custom_tags array
   source_review_id ObjectId fk
   confirmed_at datetime
 }
@@ -222,6 +218,7 @@ FinalizedDocument [icon: check-circle, color: teal] {
 // -----------------------------------------------------------
 // User owns auth + business records
 User._id < RefreshToken.user_id
+User._id < OtpToken.user_id
 User._id < UploadedImage.user_id
 User._id < MappedDocument.user_id
 User._id < JsonReviewSession.user_id

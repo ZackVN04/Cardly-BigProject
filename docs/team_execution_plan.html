@@ -1,0 +1,2138 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cardly — Team Execution Plan & Architecture Dashboard</title>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+  
+  <style>
+    /* ==========================================================================
+       CSS Variables & Theme Setup
+       ========================================================================== */
+    :root[data-theme="dark"] {
+      --bg-app: #07080e;
+      --bg-surface: #0e111a;
+      --bg-surface-hover: #151926;
+      --bg-card: #111422;
+      --border-color: #1f2438;
+      --border-color-glow: #31395c;
+      
+      --text-primary: #f1f5f9;
+      --text-secondary: #94a3b8;
+      --text-muted: #64748b;
+      
+      --accent-primary: #6366f1; /* Indigo */
+      --accent-primary-rgb: 99, 102, 241;
+      --accent-secondary: #a855f7; /* Purple */
+      --accent-secondary-rgb: 168, 85, 247;
+      
+      --success: #10b981;
+      --success-rgb: 16, 185, 129;
+      --warning: #f59e0b;
+      --warning-rgb: 245, 158, 11;
+      --danger: #ef4444;
+      --danger-rgb: 239, 68, 68;
+      --info: #0ea5e9;
+      
+      --glow-color: rgba(99, 102, 241, 0.15);
+      --glass-bg: rgba(14, 17, 26, 0.7);
+      --glass-border: rgba(255, 255, 255, 0.05);
+      --shadow-premium: 0 20px 40px -15px rgba(0, 0, 0, 0.5);
+    }
+
+    :root[data-theme="light"] {
+      --bg-app: #f8fafc;
+      --bg-surface: #ffffff;
+      --bg-surface-hover: #f1f5f9;
+      --bg-card: #f8fafc;
+      --border-color: #e2e8f0;
+      --border-color-glow: #cbd5e1;
+      
+      --text-primary: #0f172a;
+      --text-secondary: #475569;
+      --text-muted: #94a3b8;
+      
+      --accent-primary: #4f46e5;
+      --accent-primary-rgb: 79, 70, 229;
+      --accent-secondary: #9333ea;
+      --accent-secondary-rgb: 147, 51, 234;
+      
+      --success: #059669;
+      --success-rgb: 5, 150, 105;
+      --warning: #d97706;
+      --warning-rgb: 217, 119, 6;
+      --danger: #dc2626;
+      --danger-rgb: 220, 38, 38;
+      --info: #0284c7;
+      
+      --glow-color: rgba(79, 70, 229, 0.08);
+      --glass-bg: rgba(255, 255, 255, 0.8);
+      --glass-border: rgba(0, 0, 0, 0.05);
+      --shadow-premium: 0 20px 40px -15px rgba(148, 163, 184, 0.12);
+    }
+
+    /* ==========================================================================
+       Reset & Base Styles
+       ========================================================================== */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: var(--bg-app);
+      color: var(--text-primary);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    h1, h2, h3, h4, h5, h6 {
+      font-family: 'Outfit', sans-serif;
+      font-weight: 600;
+    }
+
+    /* Scrollbars */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: var(--bg-app);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: var(--border-color);
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--accent-primary);
+    }
+
+    /* ==========================================================================
+       Layout & Navigation
+       ========================================================================== */
+    .header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: var(--glass-bg);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border-color);
+      padding: 1rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 4px 30px rgba(0, 0, 0, 0.03);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .brand-logo {
+      width: 40px;
+      height: 40px;
+      background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-family: 'Outfit', sans-serif;
+      font-weight: 800;
+      font-size: 1.4rem;
+      box-shadow: 0 0 20px var(--glow-color);
+    }
+
+    .brand-info h1 {
+      font-size: 1.25rem;
+      background: linear-gradient(135deg, var(--text-primary), var(--text-secondary));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .brand-info p {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .nav-actions {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .theme-toggle {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      color: var(--text-primary);
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+    }
+
+    .theme-toggle:hover {
+      border-color: var(--accent-primary);
+      color: var(--accent-primary);
+      box-shadow: 0 0 15px var(--glow-color);
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 2rem auto;
+      padding: 0 1.5rem;
+      display: grid;
+      grid-template-columns: 320px 1fr;
+      gap: 2rem;
+    }
+
+    /* Sidebar Navigation */
+    .sidebar {
+      position: sticky;
+      top: 90px;
+      height: calc(100vh - 130px);
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .sidebar-menu {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 1rem;
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+
+    .menu-item {
+      padding: 0.75rem 1rem;
+      border-radius: 10px;
+      cursor: pointer;
+      color: var(--text-secondary);
+      font-weight: 500;
+      font-size: 0.95rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      text-decoration: none;
+    }
+
+    .menu-item:hover, .menu-item.active {
+      background: rgba(var(--accent-primary-rgb), 0.08);
+      color: var(--accent-primary);
+    }
+
+    .menu-item.active {
+      font-weight: 600;
+      border-left: 3px solid var(--accent-primary);
+      border-top-left-radius: 0;
+      border-bottom-left-radius: 0;
+    }
+
+    .menu-item svg {
+      width: 18px;
+      height: 18px;
+    }
+
+    /* Main Content */
+    .main-content {
+      display: flex;
+      flex-direction: column;
+      gap: 2rem;
+    }
+
+    .section-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: 20px;
+      padding: 2rem;
+      box-shadow: var(--shadow-premium);
+      scroll-margin-top: 100px;
+    }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .section-title {
+      font-size: 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      color: var(--text-primary);
+    }
+
+    .section-title span {
+      background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    /* ==========================================================================
+       Dashboard Overview / Pipeline Visualizer
+       ========================================================================== */
+    .pipeline-container {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 1rem;
+      margin: 1.5rem 0;
+      position: relative;
+    }
+
+    .pipeline-stage {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 1.25rem 1rem;
+      text-align: center;
+      position: relative;
+      cursor: pointer;
+    }
+
+    .pipeline-stage:hover {
+      border-color: var(--accent-primary);
+      transform: translateY(-4px);
+      box-shadow: 0 10px 20px var(--glow-color);
+    }
+
+    .stage-num {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 0.75rem;
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--text-secondary);
+    }
+
+    .pipeline-stage:hover .stage-num {
+      background: var(--accent-primary);
+      color: #fff;
+    }
+
+    .stage-name {
+      font-size: 0.9rem;
+      font-weight: 600;
+      margin-bottom: 0.25rem;
+    }
+
+    .stage-owner {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .stage-type {
+      display: inline-block;
+      margin-top: 0.5rem;
+      font-size: 0.65rem;
+      padding: 0.15rem 0.5rem;
+      border-radius: 20px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    .type-http {
+      background: rgba(var(--success-rgb), 0.1);
+      color: var(--success);
+    }
+
+    .type-internal {
+      background: rgba(var(--warning-rgb), 0.1);
+      color: var(--warning);
+    }
+
+    /* ==========================================================================
+       Directory Tree View (Interactive)
+       ========================================================================== */
+    .tree-layout {
+      display: grid;
+      grid-template-columns: 1fr 350px;
+      gap: 1.5rem;
+    }
+
+    .tree-container {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 1.5rem;
+      max-height: 550px;
+      overflow-y: auto;
+      font-family: 'Fira Code', monospace;
+      font-size: 0.9rem;
+    }
+
+    .tree-node {
+      margin-left: 1.5rem;
+      position: relative;
+    }
+
+    .tree-node::before {
+      content: '';
+      position: absolute;
+      left: -12px;
+      top: 0;
+      bottom: 12px;
+      width: 1px;
+      background-color: var(--border-color);
+    }
+
+    .tree-node::after {
+      content: '';
+      position: absolute;
+      left: -12px;
+      top: 12px;
+      width: 10px;
+      height: 1px;
+      background-color: var(--border-color);
+    }
+
+    .node-header {
+      display: flex;
+      align-items: center;
+      padding: 0.25rem 0.5rem;
+      border-radius: 6px;
+      cursor: pointer;
+      user-select: none;
+      gap: 0.5rem;
+    }
+
+    .node-header:hover {
+      background-color: var(--bg-surface-hover);
+    }
+
+    .node-icon {
+      font-size: 1.1rem;
+      display: inline-block;
+      width: 18px;
+      text-align: center;
+    }
+
+    .node-name {
+      color: var(--text-primary);
+    }
+
+    .node-desc {
+      color: var(--text-muted);
+      font-size: 0.8rem;
+      margin-left: 0.5rem;
+    }
+
+    .file-node .node-name {
+      color: var(--text-secondary);
+    }
+
+    .file-node.active {
+      background: rgba(var(--accent-primary-rgb), 0.1);
+      border-radius: 6px;
+    }
+
+    .file-node.active .node-name {
+      color: var(--accent-primary);
+      font-weight: 600;
+    }
+
+    .node-children {
+      display: block;
+    }
+
+    .node-children.collapsed {
+      display: none;
+    }
+
+    .tree-details-panel {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .details-title {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--accent-primary);
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 0.5rem;
+    }
+
+    .details-row {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+
+    .details-label {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+
+    .details-value {
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+    }
+
+    /* ==========================================================================
+       Roster / Task Board
+       ========================================================================== */
+    .roster-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 1.5rem;
+    }
+
+    .member-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .member-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 4px;
+      background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
+    }
+
+    .member-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+
+    .member-name {
+      font-size: 1.2rem;
+      font-weight: 600;
+    }
+
+    .member-role {
+      font-size: 0.8rem;
+      color: var(--accent-primary);
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    .member-badge {
+      font-size: 0.7rem;
+      padding: 0.15rem 0.5rem;
+      border-radius: 20px;
+      font-weight: 700;
+    }
+
+    .badge-p1 { background: rgba(168, 85, 247, 0.15); color: #a855f7; }
+    .badge-p2 { background: rgba(16, 185, 129, 0.15); color: #10b981; }
+    .badge-p3 { background: rgba(245, 158, 11, 0.15); color: #f59e0b; }
+    .badge-p4 { background: rgba(14, 165, 233, 0.15); color: #0ea5e9; }
+    .badge-p5 { background: rgba(236, 72, 153, 0.15); color: #ec4899; }
+    .badge-p6 { background: rgba(244, 63, 94, 0.15); color: #f43f5e; }
+    .badge-p7 { background: rgba(6, 182, 212, 0.15); color: #06b6d4; }
+
+    .member-stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      background: var(--bg-surface-hover);
+      padding: 0.75rem;
+      border-radius: 8px;
+    }
+
+    .stat-box {
+      text-align: center;
+    }
+
+    .stat-label {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      display: block;
+      margin-bottom: 0.15rem;
+    }
+
+    .stat-val {
+      font-size: 0.95rem;
+      font-weight: 600;
+    }
+
+    .member-tasks {
+      font-size: 0.85rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .task-tag {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      padding: 0.4rem 0.75rem;
+      border-radius: 8px;
+      font-family: 'Fira Code', monospace;
+      font-size: 0.75rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    /* ==========================================================================
+       API Endpoints Explorer
+       ========================================================================== */
+    .api-tabs {
+      display: flex;
+      gap: 0.5rem;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 1rem;
+      margin-bottom: 1.5rem;
+      overflow-x: auto;
+    }
+
+    .tab-btn {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      color: var(--text-secondary);
+      padding: 0.5rem 1.25rem;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 500;
+      white-space: nowrap;
+    }
+
+    .tab-btn.active {
+      background: var(--accent-primary);
+      color: #fff;
+      border-color: var(--accent-primary);
+      box-shadow: 0 4px 12px var(--glow-color);
+    }
+
+    .api-endpoint-list {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .endpoint-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .endpoint-header {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 1rem;
+      background: var(--bg-surface-hover);
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .endpoint-method {
+      font-size: 0.75rem;
+      font-weight: 700;
+      padding: 0.25rem 0.75rem;
+      border-radius: 6px;
+      text-transform: uppercase;
+      width: 70px;
+      text-align: center;
+    }
+
+    .method-get { background: rgba(16, 185, 129, 0.15); color: var(--success); }
+    .method-post { background: rgba(14, 165, 233, 0.15); color: var(--info); }
+    .method-patch { background: rgba(245, 158, 11, 0.15); color: var(--warning); }
+    .method-delete { background: rgba(239, 68, 68, 0.15); color: var(--danger); }
+
+    .endpoint-path {
+      font-family: 'Fira Code', monospace;
+      font-weight: 500;
+      font-size: 0.9rem;
+      flex: 1;
+    }
+
+    .endpoint-desc {
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+    }
+
+    .endpoint-lock {
+      color: var(--warning);
+      font-size: 1.1rem;
+    }
+
+    .endpoint-body {
+      padding: 1.5rem;
+      border-top: 1px solid var(--border-color);
+      display: none;
+    }
+
+    .endpoint-body.expanded {
+      display: block;
+    }
+
+    .code-block {
+      background: var(--bg-app);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 1rem;
+      font-family: 'Fira Code', monospace;
+      font-size: 0.8rem;
+      overflow-x: auto;
+      margin-top: 0.5rem;
+      color: #34d399; /* Light green code font */
+    }
+
+    /* ==========================================================================
+       Timeline & Critical Alerts
+       ========================================================================== */
+    .timeline {
+      position: relative;
+      padding-left: 2rem;
+      margin: 1.5rem 0;
+    }
+
+    .timeline::before {
+      content: '';
+      position: absolute;
+      left: 7px;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background: var(--border-color);
+    }
+
+    .timeline-item {
+      position: relative;
+      margin-bottom: 2rem;
+    }
+
+    .timeline-dot {
+      position: absolute;
+      left: -29px;
+      top: 4px;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--accent-primary);
+      border: 4px solid var(--bg-surface);
+      box-shadow: 0 0 10px var(--glow-color);
+    }
+
+    .timeline-title {
+      font-size: 1.1rem;
+      font-weight: 600;
+      margin-bottom: 0.25rem;
+      color: var(--text-primary);
+    }
+
+    .timeline-duration {
+      font-size: 0.75rem;
+      color: var(--accent-secondary);
+      font-weight: 600;
+      text-transform: uppercase;
+      margin-bottom: 0.5rem;
+      display: block;
+    }
+
+    .timeline-content {
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+    }
+
+    .alert-banner {
+      background: rgba(var(--warning-rgb), 0.08);
+      border: 1px solid rgba(var(--warning-rgb), 0.2);
+      border-radius: 12px;
+      padding: 1.25rem;
+      margin-bottom: 1.5rem;
+      display: flex;
+      gap: 1rem;
+      align-items: flex-start;
+    }
+
+    .alert-icon {
+      font-size: 1.5rem;
+      color: var(--warning);
+      line-height: 1;
+    }
+
+    .alert-text h4 {
+      font-weight: 600;
+      margin-bottom: 0.25rem;
+      color: var(--warning);
+    }
+
+    .alert-text p {
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+    }
+
+    /* ==========================================================================
+       Responsive Rules
+       ========================================================================== */
+    @media (max-width: 1024px) {
+      .container {
+        grid-template-columns: 1fr;
+      }
+      
+      .sidebar {
+        position: static;
+        height: auto;
+      }
+      
+      .sidebar-menu {
+        flex-direction: row;
+        overflow-x: auto;
+      }
+      
+      .tree-layout {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header class="header">
+    <div class="brand">
+      <div class="brand-logo">C</div>
+      <div class="brand-info">
+        <h1>Cardly Execution Plan</h1>
+        <p>AI Business Card Scanner & Smart Contact Forge</p>
+      </div>
+    </div>
+    
+    <div class="nav-actions">
+      <button class="theme-toggle" id="themeToggleBtn" onclick="toggleTheme()" title="Toggle Light/Dark Mode">
+        🌓
+      </button>
+    </div>
+  </header>
+
+  <!-- Container -->
+  <div class="container">
+    
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar">
+      <ul class="sidebar-menu">
+        <li><a href="#pipeline" class="menu-item active" onclick="activateMenuItem(this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><path d="M12 4v16"/><path d="M4 12h18"/></svg> Pipeline Map</a></li>
+        <li><a href="#roster" class="menu-item" onclick="activateMenuItem(this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> Team Roster</a></li>
+        <li><a href="#structure" class="menu-item" onclick="activateMenuItem(this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> Directory Tree</a></li>
+        <li><a href="#endpoints" class="menu-item" onclick="activateMenuItem(this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg> API Endpoints</a></li>
+        <li><a href="#timeline" class="menu-item" onclick="activateMenuItem(this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Schedule & Sync</a></li>
+      </ul>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      
+      <!-- Section: Pipeline Map -->
+      <section id="pipeline" class="section-card">
+        <div class="section-header">
+          <h2 class="section-title">🚀 <span>Pipeline Overview</span></h2>
+        </div>
+        
+        <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">
+          Cardly is designed around a 7-stage processing pipeline for business cards. Frontside and optional backside uploads are enqueued as background jobs run by background worker task queues, allowing real-time polling until the review stage.
+        </p>
+
+        <div class="pipeline-container">
+          <div class="pipeline-stage" onclick="showPipelineDetail('P2')">
+            <div class="stage-num" style="background-color: var(--success); color: white;">P2</div>
+            <div class="stage-name">Intake</div>
+            <div class="stage-owner">Phúc Khang</div>
+            <span class="stage-type type-http">HTTP API</span>
+          </div>
+
+          <div class="pipeline-stage" onclick="showPipelineDetail('P3')">
+            <div class="stage-num" style="background-color: var(--warning); color: white;">P3</div>
+            <div class="stage-name">Preprocess</div>
+            <div class="stage-owner">Phú Phàm</div>
+            <span class="stage-type type-internal">Internal</span>
+          </div>
+
+          <div class="pipeline-stage" onclick="showPipelineDetail('P4')">
+            <div class="stage-num" style="background-color: var(--info); color: white;">P4</div>
+            <div class="stage-name">OCR & Vision</div>
+            <div class="stage-owner">Cường & Thiệt</div>
+            <span class="stage-type type-internal">Internal</span>
+          </div>
+
+          <div class="pipeline-stage" onclick="showPipelineDetail('P5')">
+            <div class="stage-num" style="background-color: var(--accent-secondary); color: white;">P5</div>
+            <div class="stage-name">Mapping</div>
+            <div class="stage-owner">Trường Huy</div>
+            <span class="stage-type type-internal">Internal</span>
+          </div>
+
+          <div class="pipeline-stage" onclick="showPipelineDetail('P6')">
+            <div class="stage-num" style="background-color: var(--danger); color: white;">P6</div>
+            <div class="stage-name">Confidence</div>
+            <div class="stage-owner">Nhân Tài</div>
+            <span class="stage-type type-http">HTTP API</span>
+          </div>
+
+          <div class="pipeline-stage" onclick="showPipelineDetail('P7')">
+            <div class="stage-num" style="background-color: #06b6d4; color: white;">P7</div>
+            <div class="stage-name">JSON Review</div>
+            <div class="stage-owner">Khanh</div>
+            <span class="stage-type type-http">HTTP API</span>
+          </div>
+        </div>
+
+        <div id="pipelineDetailBox" style="background-color: var(--bg-card); padding: 1.25rem; border-radius: 12px; border: 1px solid var(--border-color); margin-top: 1rem; display: none;">
+          <h4 id="pipelineDetailTitle" style="color: var(--accent-primary); margin-bottom: 0.5rem;">Stage Details</h4>
+          <p id="pipelineDetailText" style="font-size: 0.9rem; color: var(--text-secondary);"></p>
+        </div>
+      </section>
+
+      <!-- Section: Team Roster -->
+      <section id="roster" class="section-card">
+        <div class="section-header">
+          <h2 class="section-title">👥 <span>Team Roster & Tasks</span></h2>
+        </div>
+
+        <div class="roster-grid">
+          
+          <!-- Phúc Khang -->
+          <div class="member-card">
+            <div class="member-header">
+              <div>
+                <h3 class="member-name">Phúc Khang</h3>
+                <span class="member-role">Image Intake & Validation</span>
+              </div>
+              <span class="member-badge badge-p2">P2</span>
+            </div>
+            <div class="member-stats">
+              <div class="stat-box">
+                <span class="stat-label">Estimate</span>
+                <span class="stat-val">3 Days</span>
+              </div>
+              <div class="stat-box">
+                <span class="stat-label">Endpoints</span>
+                <span class="stat-val">4 HTTP</span>
+              </div>
+            </div>
+            <div class="member-tasks">
+              <span class="task-tag">src/intake/router.py <span>File</span></span>
+              <span class="task-tag">src/intake/service.py <span>File</span></span>
+              <span class="task-tag">src/intake/models.py <span>File</span></span>
+            </div>
+          </div>
+
+          <!-- Phú Phàm -->
+          <div class="member-card">
+            <div class="member-header">
+              <div>
+                <h3 class="member-name">Phú Phàm</h3>
+                <span class="member-role">Image Pre-processing</span>
+              </div>
+              <span class="member-badge badge-p3">P3</span>
+            </div>
+            <div class="member-stats">
+              <div class="stat-box">
+                <span class="stat-label">Estimate</span>
+                <span class="stat-val">4 Days</span>
+              </div>
+              <div class="stat-box">
+                <span class="stat-label">Type</span>
+                <span class="stat-val">Internal</span>
+              </div>
+            </div>
+            <div class="member-tasks">
+              <span class="task-tag">src/preprocess/service.py <span>File</span></span>
+              <span class="task-tag">src/preprocess/models.py <span>File</span></span>
+              <span class="task-tag">src/preprocess/utils.py <span>File</span></span>
+            </div>
+          </div>
+
+          <!-- Cường Ngô & Thanh Thiệt -->
+          <div class="member-card">
+            <div class="member-header">
+              <div>
+                <h3 class="member-name">Cường & Thiệt</h3>
+                <span class="member-role">OCR + AI Vision Engine</span>
+              </div>
+              <span class="member-badge badge-p4">P4</span>
+            </div>
+            <div class="member-stats">
+              <div class="stat-box">
+                <span class="stat-label">Estimate</span>
+                <span class="stat-val">5-6 Days</span>
+              </div>
+              <div class="stat-box">
+                <span class="stat-label">Engines</span>
+                <span class="stat-val">Gemini / Tesser</span>
+              </div>
+            </div>
+            <div class="member-tasks">
+              <span class="task-tag">src/ocr/service.py <span>File</span></span>
+              <span class="task-tag">src/ocr/models.py <span>File</span></span>
+              <span class="task-tag">ocr/clients/gemini_client.py <span>File</span></span>
+            </div>
+          </div>
+
+          <!-- Trường Huy -->
+          <div class="member-card">
+            <div class="member-header">
+              <div>
+                <h3 class="member-name">Trường Huy (Hui)</h3>
+                <span class="member-role">Business Field Mapping</span>
+              </div>
+              <span class="member-badge badge-p5">P5</span>
+            </div>
+            <div class="member-stats">
+              <div class="stat-box">
+                <span class="stat-label">Estimate</span>
+                <span class="stat-val">3-4 Days</span>
+              </div>
+              <div class="stat-box">
+                <span class="stat-label">Mappers</span>
+                <span class="stat-val">Card Mapper</span>
+              </div>
+            </div>
+            <div class="member-tasks">
+              <span class="task-tag">src/mapping/service.py <span>File</span></span>
+              <span class="task-tag">mapping/mappers/business_card.py <span>File</span></span>
+              <span class="task-tag">src/mapping/normalizers.py <span>File</span></span>
+            </div>
+          </div>
+
+          <!-- Nhân Tài -->
+          <div class="member-card">
+            <div class="member-header">
+              <div>
+                <h3 class="member-name">Nhân Tài</h3>
+                <span class="member-role">Confidence Scoring</span>
+              </div>
+              <span class="member-badge badge-p6">P6</span>
+            </div>
+            <div class="member-stats">
+              <div class="stat-box">
+                <span class="stat-label">Estimate</span>
+                <span class="stat-val">3-4 Days</span>
+              </div>
+              <div class="stat-box">
+                <span class="stat-label">Endpoints</span>
+                <span class="stat-val">2 HTTP</span>
+              </div>
+            </div>
+            <div class="member-tasks">
+              <span class="task-tag">src/confidence/router.py <span>File</span></span>
+              <span class="task-tag">src/confidence/service.py <span>File</span></span>
+              <span class="task-tag">src/confidence/models.py <span>File</span></span>
+            </div>
+          </div>
+
+          <!-- Khanh -->
+          <div class="member-card">
+            <div class="member-header">
+              <div>
+                <h3 class="member-name">Khanh</h3>
+                <span class="member-role">JSON Review Flow</span>
+              </div>
+              <span class="member-badge badge-p7">P7</span>
+            </div>
+            <div class="member-stats">
+              <div class="stat-box">
+                <span class="stat-label">Estimate</span>
+                <span class="stat-val">4 Days</span>
+              </div>
+              <div class="stat-box">
+                <span class="stat-label">Endpoints</span>
+                <span class="stat-val">3 HTTP</span>
+              </div>
+            </div>
+            <div class="member-tasks">
+              <span class="task-tag">src/review/router.py <span>File</span></span>
+              <span class="task-tag">src/review/service.py <span>File</span></span>
+              <span class="task-tag">src/review/models.py <span>File</span></span>
+            </div>
+          </div>
+
+          <!-- Auth & Core -->
+          <div class="member-card">
+            <div class="member-header">
+              <div>
+                <h3 class="member-name">Auth (TBD)</h3>
+                <span class="member-role">Security & Account</span>
+              </div>
+              <span class="member-badge badge-p1">P1</span>
+            </div>
+            <div class="member-stats">
+              <div class="stat-box">
+                <span class="stat-label">Estimate</span>
+                <span class="stat-val">5-6 Days</span>
+              </div>
+              <div class="stat-box">
+                <span class="stat-label">Endpoints</span>
+                <span class="stat-val">8 HTTP</span>
+              </div>
+            </div>
+            <div class="member-tasks">
+              <span class="task-tag">src/auth/router.py <span>File</span></span>
+              <span class="task-tag">src/auth/service.py <span>File</span></span>
+              <span class="task-tag">src/auth/models.py <span>File</span></span>
+            </div>
+          </div>
+
+          <!-- Pipeline Orchestrator -->
+          <div class="member-card">
+            <div class="member-header">
+              <div>
+                <h3 class="member-name">Orchestration</h3>
+                <span class="member-role">Background Task Wire</span>
+              </div>
+              <span class="member-badge" style="background: rgba(99, 102, 241, 0.15); color: var(--accent-primary);">SYS</span>
+            </div>
+            <div class="member-stats">
+              <div class="stat-box">
+                <span class="stat-label">Estimate</span>
+                <span class="stat-val">2-3 Days</span>
+              </div>
+              <div class="stat-box">
+                <span class="stat-label">Queue</span>
+                <span class="stat-val">ARQ Redis</span>
+              </div>
+            </div>
+            <div class="member-tasks">
+              <span class="task-tag">src/pipeline/worker.py <span>File</span></span>
+              <span class="task-tag">src/pipeline/tasks.py <span>File</span></span>
+              <span class="task-tag">src/pipeline/stages.py <span>File</span></span>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- Section: Directory Tree -->
+      <section id="structure" class="section-card">
+        <div class="section-header">
+          <h2 class="section-title">📂 <span>Directory Tree & Descriptions</span></h2>
+        </div>
+
+        <p style="color: var(--text-secondary); margin-bottom: 1.5rem; font-size: 0.95rem;">
+          Click folder items to expand or collapse. Click files to view details about their role in the overall backend design.
+        </p>
+
+        <div class="tree-layout">
+          
+          <div class="tree-container">
+            <!-- ocr-backend/ root -->
+            <div class="tree-node">
+              <div class="node-header folder-node" onclick="toggleFolder(this)">
+                <span class="node-icon">📁</span>
+                <span class="node-name">ocr-backend/</span>
+                <span class="node-desc">Project Root Workspace</span>
+              </div>
+              
+              <div class="node-children">
+                
+                <!-- src/ -->
+                <div class="tree-node">
+                  <div class="node-header folder-node" onclick="toggleFolder(this)">
+                    <span class="node-icon">📁</span>
+                    <span class="node-name">src/</span>
+                    <span class="node-desc">Source Code</span>
+                  </div>
+                  <div class="node-children">
+                    
+                    <!-- auth -->
+                    <div class="tree-node">
+                      <div class="node-header folder-node" onclick="toggleFolder(this)">
+                        <span class="node-icon">📁</span>
+                        <span class="node-name">auth/</span>
+                        <span class="node-desc">P1 — Auth & JWT Module</span>
+                      </div>
+                      <div class="node-children">
+                        <div class="node-header file-node" onclick="selectFile('auth/__init__.py', 'Auth package initialization.')"><span class="node-icon">📄</span> <span class="node-name">__init__.py</span></div>
+                        <div class="node-header file-node" onclick="selectFile('auth/router.py', 'HTTP Auth routing definition.')"><span class="node-icon">📄</span> <span class="node-name">router.py</span></div>
+                        <div class="node-header file-node" onclick="selectFile('auth/schemas.py', 'Pydantic request & response contracts.')"><span class="node-icon">📄</span> <span class="node-name">schemas.py</span></div>
+                        <div class="node-header file-node" onclick="selectFile('auth/models.py', 'Beanie User, RefreshToken, and OtpToken models.')"><span class="node-icon">📄</span> <span class="node-name">models.py</span></div>
+                        <div class="node-header file-node" onclick="selectFile('auth/service.py', 'Hashing, JWT issuing, OTP verification logic.')"><span class="node-icon">📄</span> <span class="node-name">service.py</span></div>
+                        <div class="node-header file-node" onclick="selectFile('auth/dependencies.py', 'Auth guards like get_current_user.')"><span class="node-icon">📄</span> <span class="node-name">dependencies.py</span></div>
+                        <div class="node-header file-node" onclick="selectFile('auth/config.py', 'Auth configuration settings (JWT_SECRET, expiration).')"><span class="node-icon">📄</span> <span class="node-name">config.py</span></div>
+                        <div class="node-header file-node" onclick="selectFile('auth/constants.py', 'Auth errors and status constants.')"><span class="node-icon">📄</span> <span class="node-name">constants.py</span></div>
+                        <div class="node-header file-node" onclick="selectFile('auth/exceptions.py', 'Auth custom validation and token exceptions.')"><span class="node-icon">📄</span> <span class="node-name">exceptions.py</span></div>
+                        <div class="node-header file-node" onclick="selectFile('auth/utils.py', 'OTP generators and helper methods.')"><span class="node-icon">📄</span> <span class="node-name">utils.py</span></div>
+                      </div>
+                    </div>
+
+                    <!-- intake -->
+                    <div class="tree-node">
+                      <div class="node-header folder-node" onclick="toggleFolder(this)">
+                        <span class="node-icon">📁</span>
+                        <span class="node-name">intake/</span>
+                        <span class="node-desc">P2 — Intake & Validation Module</span>
+                      </div>
+                      <div class="node-children">
+                        <div class="node-header file-node" onclick="selectFile('intake/__init__.py', 'Intake package initialization.')"><span class="node-icon">📄</span> <span class="node-name">__init__.py</span></div>
+                        <div class="node-header file-node" onclick="selectFile('intake/router.py', 'FastAPI file upload and deletion router.')"><span class="node-icon">📄</span> <span class="node-name">router.py</span></div>
+                        <div class="node-header file-node" onclick="selectFile('intake/schemas.py', 'Upload responses and document schemas.')"><span class="node-icon">📄</span> <span class="node-name">schemas.py</span></div>
+                        <div class="node-header file-node" onclick="selectFile('intake/models.py', 'Beanie UploadedImage model.')"><span class="node-icon">📄</span> <span class="node-name">models.py</span></div>
+                        <div class="node-header file-node" onclick="selectFile('intake/service.py', 'SHA-256 dedupe, MIME/size validation, storage handlers.')"><span class="node-icon">📄</span> <span class="node-name">service.py</span></div>
+                        <div class="node-header file-node" onclick="selectFile('intake/dependencies.py', 'Guards to ensure file parameters are valid.')"><span class="node-icon">📄</span> <span class="node-name">dependencies.py</span></div>
+                        <div class="node-header file-node" onclick="selectFile('intake/config.py', 'Size and MIME constraint settings.')"><span class="node-icon">📄</span> <span class="node-name">config.py</span></div>
+                        <div class="node-header file-node" onclick="selectFile('intake/constants.py', 'MIME white lists.')"><span class="node-icon">📄</span> <span class="node-name">constants.py</span></div>
+                        <div class="node-header file-node" onclick="selectFile('intake/exceptions.py', 'FileTooLarge, InvalidMime, DuplicateFile.')"><span class="node-icon">📄</span> <span class="node-name">exceptions.py</span></div>
+                        <div class="node-header file-node" onclick="selectFile('intake/utils.py', 'SHA-256 calculators and unique ID generators.')"><span class="node-icon">📄</span> <span class="node-name">utils.py</span></div>
+                      </div>
+                    </div>
+
+                    <!-- preprocess -->
+                    <div class="tree-node">
+                      <div class="node-header folder-node" onclick="toggleFolder(this)">
+                        <span class="node-icon">📁</span>
+                        <span class="node-name">preprocess/</span>
+                        <span class="node-desc">P3 — Image Pre-processing Module</span>
+                      </div>
+                      <div class="node-children">
+                        <div class="node-header file-node" onclick="selectFile('preprocess/__init__.py', 'Preprocess package initialization.')"><span class="node-icon">📄</span> <span class="node-name">__init__.py</span></div>
+                        <div class="node-header file-node" onclick="selectFile('preprocess/models.py', 'Beanie PreprocessedImage schema.')"><span class="node-icon">📄</span> <span class="node-name">models.py</span></div>
+                        <div class="node-header file-node" onclick="selectFile('preprocess/service.py', 'Normalize DPI, deskew, adjust contrast/brightness.')"><span class="node-icon">📄</span> <span class="node-name">service.py</span></div>
+                        <div class="node-header file-node" onclick="selectFile('preprocess/config.py', 'DPI and dimension thresholds configuration.')"><span class="node-icon">📄</span> <span class="node-name">config.py</span></div>
+                        <div class="node-header file-node" onclick="selectFile('preprocess/constants.py', 'Preprocessing format settings.')"><span class="node-icon">📄</span> <span class="node-name">constants.py</span></div>
+                        <div class="node-header file-node" onclick="selectFile('preprocess/exceptions.py', 'PreprocessFailed and distortion exceptions.')"><span class="node-icon">📄</span> <span class="node-name">exceptions.py</span></div>
+                        <div class="node-header file-node" onclick="selectFile('preprocess/utils.py', 'PIL and OpenCV imaging helper functions.')"><span class="node-icon">📄</span> <span class="node-name">utils.py</span></div>
+                      </div>
+                    </div>
+
+                    <!-- ocr -->
+                    <div class="tree-node">
+                      <div class="node-header folder-node" onclick="toggleFolder(this)">
+                        <span class="node-icon">📁</span>
+                        <span class="node-name">ocr/</span>
+                        <span class="node-desc">P4 — OCR & AI Vision Module</span>
+                      </div>
+                      <div class="node-children">
+                        <div class="node-header file-node" onclick="selectFile('ocr/__init__.py', 'OCR package initialization.')"><span class="node-icon">📄</span> <span class="node-name">__init__.py</span></div>
+                        <div class="node-header file-node" onclick="selectFile('ocr/models.py', 'Beanie OcrResult and AiVisionResult schemas.')"><span class="node-icon">📄</span> <span class="node-name">models.py</span></div>
+                        <div class="node-header file-node" onclick="selectFile('ocr/schemas.py', 'OcrBlock and VisionRegion models.')"><span class="node-icon">📄</span> <span class="node-name">schemas.py</span></div>
+                        <div class="node-header file-node" onclick="selectFile('ocr/service.py', 'Concurrent run_ocr() and run_vision() execution.')"><span class="node-icon">📄</span> <span class="node-name">service.py</span></div>
+                        <div class="tree-node">
+                          <div class="node-header folder-node" onclick="toggleFolder(this)">
+                            <span class="node-icon">📁</span>
+                            <span class="node-name">clients/</span>
+                          </div>
+                          <div class="node-children">
+                            <div class="node-header file-node" onclick="selectFile('ocr/clients/__init__.py', 'Client package initialization.')"><span class="node-icon">📄</span> <span class="node-name">__init__.py</span></div>
+                            <div class="node-header file-node" onclick="selectFile('ocr/clients/tesseract_client.py', 'Pytesseract wrappers.')"><span class="node-icon">📄</span> <span class="node-name">tesseract_client.py</span></div>
+                            <div class="node-header file-node" onclick="selectFile('ocr/clients/gemini_client.py', 'Gemini AI Vision api wrappers.')"><span class="node-icon">📄</span> <span class="node-name">gemini_client.py</span></div>
+                          </div>
+                        </div>
+                        <div class="node-header file-node" onclick="selectFile('ocr/config.py', 'API keys and OCR engine switches.')"><span class="node-icon">📄</span> <span class="node-name">config.py</span></div>
+                        <div class="node-header file-node" onclick="selectFile('ocr/constants.py', 'Supported language tables.')"><span class="node-icon">📄</span> <span class="node-name">constants.py</span></div>
+                        <div class="node-header file-node" onclick="selectFile('ocr/exceptions.py', 'OcrFailed and VisionApiError.')"><span class="node-icon">📄</span> <span class="node-name">exceptions.py</span></div>
+                        <div class="node-header file-node" onclick="selectFile('ocr/utils.py', 'OCR coordinate translators.')"><span class="node-icon">📄</span> <span class="node-name">utils.py</span></div>
+                      </div>
+                    </div>
+
+                    <!-- mapping -->
+                    <div class="tree-node">
+                      <div class="node-header folder-node" onclick="toggleFolder(this)">
+                        <span class="node-icon">📁</span>
+                        <span class="node-name">mapping/</span>
+                        <span class="node-desc">P5 — Business Field Mapping Module</span>
+                      </div>
+                      <div class="node-children">
+                        <div class="node-header file-node" onclick="selectFile('mapping/__init__.py', 'Mapping package initialization.')"><span class="node-icon">📄</span> <span class="node-name">__init__.py</span></div>
+                        <div class="node-header file-node" onclick="selectFile('mapping/schemas.py', 'BusinessCardFields representation.')"><span class="node-icon">📄</span> <span class="node-name">schemas.py</span></div>
+                        <div class="node-header file-node" onclick="selectFile('mapping/models.py', 'Beanie MappedDocument schema.')"><span class="node-icon">📄</span> <span class="node-name">models.py</span></div>
+                        <div class="node-header file-node" onclick="selectFile('mapping/service.py', 'Main field mapper entrypoint.')"><span class="node-icon">📄</span> <span class="node-name">service.py</span></div>
+                        <div class="tree-node">
+                          <div class="node-header folder-node" onclick="toggleFolder(this)">
+                            <span class="node-icon">📁</span>
+                            <span class="node-name">mappers/</span>
+                          </div>
+                          <div class="node-children">
+                            <div class="node-header file-node" onclick="selectFile('mapping/mappers/__init__.py', 'Mappers package initialization.')"><span class="node-icon">📄</span> <span class="node-name">__init__.py</span></div>
+                            <div class="node-header file-node" onclick="selectFile('mapping/mappers/base.py', 'BaseMapper abstract base class.')"><span class="node-icon">📄</span> <span class="node-name">base.py</span></div>
+                            <div class="node-header file-node" onclick="selectFile('mapping/mappers/business_card.py', 'BusinessCardMapper concrete logic.')"><span class="node-icon">📄</span> <span class="node-name">business_card.py</span></div>
+                          </div>
+                        </div>
+                        <div class="node-header file-node" onclick="selectFile('mapping/normalizers.py', 'Standardize phone, lowercase email.')"><span class="node-icon">📄</span> <span class="node-name">normalizers.py</span></div>
+                        <div class="node-header file-node" onclick="selectFile('mapping/validators.py', 'Strict formats validation rules.')"><span class="node-icon">📄</span> <span class="node-name">validators.py</span></div>
+                        <div class="node-header file-node" onclick="selectFile('mapping/config.py', 'Schema version configurations.')"><span class="node-icon">📄</span> <span class="node-name">config.py</span></div>
+                        <div class="node-header file-node" onclick="selectFile('mapping/constants.py', 'Validation rules configuration tables.')"><span class="node-icon">📄</span> <span class="node-name">constants.py</span></div>
+                        <div class="node-header file-node" onclick="selectFile('mapping/exceptions.py', 'MappingFailed and SchemaMismatch exceptions.')"><span class="node-icon">📄</span> <span class="node-name">exceptions.py</span></div>
+                        <div class="node-header file-node" onclick="selectFile('mapping/utils.py', 'Bbox intersection calculation helpers.')"><span class="node-icon">📄</span> <span class="node-name">utils.py</span></div>
+                      </div>
+                    </div>
+
+                    <!-- confidence -->
+                    <div class="tree-node">
+                      <div class="node-header folder-node" onclick="toggleFolder(this)">
+                        <span class="node-icon">📁</span>
+                        <span class="node-name">confidence/</span>
+                        <span class="node-desc">P6 — Scoring & History Module</span>
+                      </div>
+                      <div class="node-children">
+                        <div class="node-header file-node" onclick="selectFile('confidence/__init__.py', 'Confidence package initialization.')"><span class="node-icon">📄</span> <span class="node-name">__init__.py</span></div>
+                        <div class="node-header file-node" onclick="selectFile('confidence/router.py', 'GET /documents endpoints.')"><span class="node-icon">📄</span> <span class="node-name">router.py</span></div>
+                        <div class="node-header file-node" onclick="selectFile('confidence/schemas.py', 'ConfidenceResponse structure.')"><span class="node-icon">📄</span> <span class="node-name">schemas.py</span></div>
+                        <div class="node-header file-node" onclick="selectFile('confidence/models.py', 'ConfidenceReport and ProcessingHistory documents.')"><span class="node-icon">📄</span> <span class="node-name">models.py</span></div>
+                        <div class="node-header file-node" onclick="selectFile('confidence/service.py', 'Score calculator, logging stage transitions.')"><span class="node-icon">📄</span> <span class="node-name">service.py</span></div>
+                        <div class="node-header file-node" onclick="selectFile('confidence/dependencies.py', 'Retrieval filters.')"><span class="node-icon">📄</span> <span class="node-name">dependencies.py</span></div>
+                        <div class="node-header file-node" onclick="selectFile('confidence/config.py', 'Threshold level config limits.')"><span class="node-icon">📄</span> <span class="node-name">config.py</span></div>
+                        <div class="node-header file-node" onclick="selectFile('confidence/constants.py', 'Confidence approval flags.')"><span class="node-icon">📄</span> <span class="node-name">constants.py</span></div>
+                        <div class="node-header file-node" onclick="selectFile('confidence/exceptions.py', 'ScoringFailed and DocumentNotFound exceptions.')"><span class="node-icon">📄</span> <span class="node-name">exceptions.py</span></div>
+                        <div class="node-header file-node" onclick="selectFile('confidence/utils.py', 'Calculation helper formulas.')"><span class="node-icon">📄</span> <span class="node-name">utils.py</span></div>
+                      </div>
+                    </div>
+
+                    <!-- review -->
+                    <div class="tree-node">
+                      <div class="node-header folder-node" onclick="toggleFolder(this)">
+                        <span class="node-icon">📁</span>
+                        <span class="node-name">review/</span>
+                        <span class="node-desc">P7 — JSON Review Module</span>
+                      </div>
+                      <div class="node-children">
+                        <div class="node-header file-node" onclick="selectFile('review/__init__.py', 'Review package initialization.')"><span class="node-icon">📄</span> <span class="node-name">__init__.py</span></div>
+                        <div class="node-header file-node" onclick="selectFile('review/router.py', 'PATCH /review and POST /confirm endpoints.')"><span class="node-icon">📄</span> <span class="node-name">router.py</span></div>
+                        <div class="node-header file-node" onclick="selectFile('review/schemas.py', 'EditRequest and dry run response structures.')"><span class="node-icon">📄</span> <span class="node-name">schemas.py</span></div>
+                        <div class="node-header file-node" onclick="selectFile('review/models.py', 'JsonReviewSession and FinalizedDocument models.')"><span class="node-icon">📄</span> <span class="node-name">models.py</span></div>
+                        <div class="node-header file-node" onclick="selectFile('review/service.py', 'Manage reviews, apply edit patch lists, finalize.')"><span class="node-icon">📄</span> <span class="node-name">service.py</span></div>
+                        <div class="node-header file-node" onclick="selectFile('review/dependencies.py', 'Guards for checking review states.')"><span class="node-icon">📄</span> <span class="node-name">dependencies.py</span></div>
+                        <div class="node-header file-node" onclick="selectFile('review/config.py', 'Session timeouts configs.')"><span class="node-icon">📄</span> <span class="node-name">config.py</span></div>
+                        <div class="node-header file-node" onclick="selectFile('review/constants.py', 'Review stage status options.')"><span class="node-icon">📄</span> <span class="node-name">constants.py</span></div>
+                        <div class="node-header file-node" onclick="selectFile('review/exceptions.py', 'AlreadyFinalized and InvalidState errors.')"><span class="node-icon">📄</span> <span class="node-name">exceptions.py</span></div>
+                        <div class="node-header file-node" onclick="selectFile('review/utils.py', 'Audit diff calculators.')"><span class="node-icon">📄</span> <span class="node-name">utils.py</span></div>
+                      </div>
+                    </div>
+
+                    <!-- pipeline -->
+                    <div class="tree-node">
+                      <div class="node-header folder-node" onclick="toggleFolder(this)">
+                        <span class="node-icon">📁</span>
+                        <span class="node-name">pipeline/</span>
+                        <span class="node-desc">Orchestration Layer</span>
+                      </div>
+                      <div class="node-children">
+                        <div class="node-header file-node" onclick="selectFile('pipeline/__init__.py', 'Pipeline package initialization.')"><span class="node-icon">📄</span> <span class="node-name">__init__.py</span></div>
+                        <div class="node-header file-node" onclick="selectFile('pipeline/worker.py', 'ARQ Worker connection point settings.')"><span class="node-icon">📄</span> <span class="node-name">worker.py</span></div>
+                        <div class="node-header file-node" onclick="selectFile('pipeline/tasks.py', 'Main async task runner processes.')"><span class="node-icon">📄</span> <span class="node-name">tasks.py</span></div>
+                        <div class="node-header file-node" onclick="selectFile('pipeline/stages.py', 'Sequencing P2 -> P3 -> P4 -> P5 -> P6.')"><span class="node-icon">📄</span> <span class="node-name">stages.py</span></div>
+                        <div class="node-header file-node" onclick="selectFile('pipeline/exceptions.py', 'Stage timeout exception definitions.')"><span class="node-icon">📄</span> <span class="node-name">exceptions.py</span></div>
+                      </div>
+                    </div>
+
+                    <!-- common -->
+                    <div class="tree-node">
+                      <div class="node-header folder-node" onclick="toggleFolder(this)">
+                        <span class="node-icon">📁</span>
+                        <span class="node-name">common/</span>
+                        <span class="node-desc">Shared Utilities</span>
+                      </div>
+                      <div class="node-children">
+                        <div class="node-header file-node" onclick="selectFile('common/__init__.py', 'Common package initialization.')"><span class="node-icon">📄</span> <span class="node-name">__init__.py</span></div>
+                        <div class="node-header file-node" onclick="selectFile('common/base_model.py', 'CustomModel UTC ISO datetime serializer.')"><span class="node-icon">📄</span> <span class="node-name">base_model.py</span></div>
+                        <div class="node-header file-node" onclick="selectFile('common/pagination.py', 'Paginated generic responses.')"><span class="node-icon">📄</span> <span class="node-name">pagination.py</span></div>
+                        <div class="node-header file-node" onclick="selectFile('common/enums.py', 'Shared enums like DocType.')"><span class="node-icon">📄</span> <span class="node-name">enums.py</span></div>
+                        <div class="node-header file-node" onclick="selectFile('common/storage.py', 'S3 and local disk operations helper.')"><span class="node-icon">📄</span> <span class="node-name">storage.py</span></div>
+                      </div>
+                    </div>
+
+                    <!-- src foundations -->
+                    <div class="node-header file-node" onclick="selectFile('__init__.py', 'Root package setup.')"><span class="node-icon">📄</span> <span class="node-name">__init__.py</span></div>
+                    <div class="node-header file-node" onclick="selectFile('config.py', 'Root Settings parser.')"><span class="node-icon">📄</span> <span class="node-name">config.py</span></div>
+                    <div class="node-header file-node" onclick="selectFile('database.py', 'Beanie initialization loader.')"><span class="node-icon">📄</span> <span class="node-name">database.py</span></div>
+                    <div class="node-header file-node" onclick="selectFile('exceptions.py', 'FastAPI global HTTP exception handlers.')"><span class="node-icon">📄</span> <span class="node-name">exceptions.py</span></div>
+                    <div class="node-header file-node" onclick="selectFile('constants.py', 'Global environments constants.')"><span class="node-icon">📄</span> <span class="node-name">constants.py</span></div>
+                    <div class="node-header file-node" onclick="selectFile('main.py', 'FastAPI Application lifespan and router setup.')"><span class="node-icon">📄</span> <span class="node-name">main.py</span></div>
+                  </div>
+                </div>
+
+                <!-- tests/ -->
+                <div class="tree-node">
+                  <div class="node-header folder-node" onclick="toggleFolder(this)">
+                    <span class="node-icon">📁</span>
+                    <span class="node-name">tests/</span>
+                    <span class="node-desc">Pytest Unit Suites</span>
+                  </div>
+                  <div class="node-children">
+                    <div class="node-header file-node" onclick="selectFile('tests/__init__.py', 'Tests initialization.')"><span class="node-icon">📄</span> <span class="node-name">__init__.py</span></div>
+                    <div class="node-header file-node" onclick="selectFile('tests/conftest.py', 'Async httpx client configurations.')"><span class="node-icon">📄</span> <span class="node-name">conftest.py</span></div>
+                    <div class="tree-node"><div class="node-header folder-node" onclick="toggleFolder(this)"><span class="node-icon">📁</span> <span class="node-name">auth/</span></div><div class="node-children"><div class="node-header file-node" onclick="selectFile('tests/auth/test_login.py', 'Auth tests.')"><span class="node-icon">📄</span> <span class="node-name">test_login.py</span></div></div></div>
+                    <div class="tree-node"><div class="node-header folder-node" onclick="toggleFolder(this)"><span class="node-icon">📁</span> <span class="node-name">intake/</span></div><div class="node-children"><div class="node-header file-node" onclick="selectFile('tests/intake/test_upload_validation.py', 'Upload validation tests.')"><span class="node-icon">📄</span> <span class="node-name">test_upload_validation.py</span></div></div></div>
+                    <div class="tree-node"><div class="node-header folder-node" onclick="toggleFolder(this)"><span class="node-icon">📁</span> <span class="node-name">preprocess/</span></div><div class="node-children"><div class="node-header file-node" onclick="selectFile('tests/preprocess/test_normalize.py', 'Image correction tests.')"><span class="node-icon">📄</span> <span class="node-name">test_normalize.py</span></div></div></div>
+                    <div class="tree-node"><div class="node-header folder-node" onclick="toggleFolder(this)"><span class="node-icon">📁</span> <span class="node-name">ocr/</span></div><div class="node-children"><div class="node-header file-node" onclick="selectFile('tests/ocr/test_extract.py', 'OCR result checks.')"><span class="node-icon">📄</span> <span class="node-name">test_extract.py</span></div></div></div>
+                    <div class="tree-node"><div class="node-header folder-node" onclick="toggleFolder(this)"><span class="node-icon">📁</span> <span class="node-name">mapping/</span></div><div class="node-children">
+                      <div class="node-header file-node" onclick="selectFile('tests/mapping/test_business_card_mapper.py', 'Fields mapper unit test.')"><span class="node-icon">📄</span> <span class="node-name">test_business_card_mapper.py</span></div>
+                      <div class="node-header file-node" onclick="selectFile('tests/mapping/test_normalizers.py', 'String cleanup checks.')"><span class="node-icon">📄</span> <span class="node-name">test_normalizers.py</span></div>
+                      <div class="node-header file-node" onclick="selectFile('tests/mapping/test_validators.py', 'Format validation tests.')"><span class="node-icon">📄</span> <span class="node-name">test_validators.py</span></div>
+                    </div></div>
+                    <div class="tree-node"><div class="node-header folder-node" onclick="toggleFolder(this)"><span class="node-icon">📁</span> <span class="node-name">confidence/</span></div><div class="node-children"><div class="node-header file-node" onclick="selectFile('tests/confidence/test_scoring.py', 'Scoring logic checks.')"><span class="node-icon">📄</span> <span class="node-name">test_scoring.py</span></div></div></div>
+                    <div class="tree-node"><div class="node-header folder-node" onclick="toggleFolder(this)"><span class="node-icon">📁</span> <span class="node-name">review/</span></div><div class="node-children"><div class="node-header file-node" onclick="selectFile('tests/review/test_confirm.py', 'PATCH / POST confirm tests.')"><span class="node-icon">📄</span> <span class="node-name">test_confirm.py</span></div></div></div>
+                  </div>
+                </div>
+
+                <!-- mock_data/ -->
+                <div class="tree-node">
+                  <div class="node-header folder-node" onclick="toggleFolder(this)">
+                    <span class="node-icon">📁</span>
+                    <span class="node-name">mock_data/</span>
+                    <span class="node-desc">Verification Mock Files</span>
+                  </div>
+                  <div class="node-children">
+                    <div class="node-header file-node" onclick="selectFile('mock_data/README.md', 'Data contracts explanations.')"><span class="node-icon">📄</span> <span class="node-name">README.md</span></div>
+                    <div class="node-header file-node" onclick="selectFile('mock_data/business_card_ocr_output.json', 'OCR mock structure output.')"><span class="node-icon">📄</span> <span class="node-name">business_card_ocr_output.json</span></div>
+                    <div class="node-header file-node" onclick="selectFile('mock_data/business_card_mapped.json', 'Mapped card output fields.')"><span class="node-icon">📄</span> <span class="node-name">business_card_mapped.json</span></div>
+                    <div class="node-header file-node" onclick="selectFile('mock_data/document_full_state_business_card.json', 'Final document state mock payload.')"><span class="node-icon">📄</span> <span class="node-name">document_full_state_business_card.json</span></div>
+                  </div>
+                </div>
+
+                <!-- docs/ -->
+                <div class="tree-node">
+                  <div class="node-header folder-node" onclick="toggleFolder(this)">
+                    <span class="node-icon">📁</span>
+                    <span class="node-name">docs/</span>
+                    <span class="node-desc">Documentation & Schemas</span>
+                  </div>
+                  <div class="node-children">
+                    <div class="node-header file-node" onclick="selectFile('docs/erd_eraser.txt', 'ERD diagram Eraser DSL spec.')"><span class="node-icon">📄</span> <span class="node-name">erd_eraser.txt</span></div>
+                    <div class="node-header file-node" onclick="selectFile('docs/api_endpoints.md', 'REST API endpoints Markdown.')"><span class="node-icon">📄</span> <span class="node-name">api_endpoints.md</span></div>
+                    <div class="node-header file-node" onclick="selectFile('docs/mongo_schema.py', 'MongoDB schemas reference model list.')"><span class="node-icon">📄</span> <span class="node-name">mongo_schema.py</span></div>
+                  </div>
+                </div>
+
+                <!-- scripts/ -->
+                <div class="tree-node">
+                  <div class="node-header folder-node" onclick="toggleFolder(this)">
+                    <span class="node-icon">📁</span>
+                    <span class="node-name">scripts/</span>
+                    <span class="node-desc">Operation Scripts</span>
+                  </div>
+                  <div class="node-children">
+                    <div class="node-header file-node" onclick="selectFile('scripts/create_indexes.py', 'MongoDB indexing script.')"><span class="node-icon">📄</span> <span class="node-name">create_indexes.py</span></div>
+                    <div class="node-header file-node" onclick="selectFile('scripts/seed_dev_data.py', 'Development mock data seeder.')"><span class="node-icon">📄</span> <span class="node-name">seed_dev_data.py</span></div>
+                  </div>
+                </div>
+
+                <!-- requirements/ -->
+                <div class="tree-node">
+                  <div class="node-header folder-node" onclick="toggleFolder(this)">
+                    <span class="node-icon">📁</span>
+                    <span class="node-name">requirements/</span>
+                    <span class="node-desc">Pip Dependencies Configurations</span>
+                  </div>
+                  <div class="node-children">
+                    <div class="node-header file-node" onclick="selectFile('requirements/base.txt', 'Base core dependencies (FastAPI, Beanie, ARQ).')"><span class="node-icon">📄</span> <span class="node-name">base.txt</span></div>
+                    <div class="node-header file-node" onclick="selectFile('requirements/dev.txt', 'Dev testing extensions (Pytest, Ruff).')"><span class="node-icon">📄</span> <span class="node-name">dev.txt</span></div>
+                    <div class="node-header file-node" onclick="selectFile('requirements/prod.txt', 'Production services setup (Sentry, Gunicorn).')"><span class="node-icon">📄</span> <span class="node-name">prod.txt</span></div>
+                  </div>
+                </div>
+
+                <!-- docker/ -->
+                <div class="tree-node">
+                  <div class="node-header folder-node" onclick="toggleFolder(this)">
+                    <span class="node-icon">📁</span>
+                    <span class="node-name">docker/</span>
+                    <span class="node-desc">Container Deployment Scripts</span>
+                  </div>
+                  <div class="node-children">
+                    <div class="node-header file-node" onclick="selectFile('docker/Dockerfile', 'Python multi-stage slim container spec.')"><span class="node-icon">📄</span> <span class="node-name">Dockerfile</span></div>
+                    <div class="node-header file-node" onclick="selectFile('docker/docker-compose.yml', 'Mongo + Redis + API + Worker compose settings.')"><span class="node-icon">📄</span> <span class="node-name">docker-compose.yml</span></div>
+                    <div class="node-header file-node" onclick="selectFile('docker/docker-compose.dev.yml', 'Mounts for dev reload compose settings.')"><span class="node-icon">📄</span> <span class="node-name">docker-compose.dev.yml</span></div>
+                  </div>
+                </div>
+
+                <!-- env and ignore files -->
+                <div class="node-header file-node" onclick="selectFile('.env.example', 'Template configuration variables.')"><span class="node-icon">📄</span> <span class="node-name">.env.example</span></div>
+
+              </div>
+            </div>
+          </div>
+
+          <div class="tree-details-panel">
+            <h3 class="details-title">File Inspector</h3>
+            
+            <div class="details-row">
+              <span class="details-label">Selected File</span>
+              <span class="details-value" id="inspectFilename">Click a file to inspect</span>
+            </div>
+            
+            <div class="details-row">
+              <span class="details-label">Description</span>
+              <span class="details-value" id="inspectDesc">Information will be displayed here.</span>
+            </div>
+
+            <div class="details-row">
+              <span class="details-label">Associated Layer</span>
+              <span class="details-value" id="inspectLayer">-</span>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- Section: API Endpoints -->
+      <section id="endpoints" class="section-card">
+        <div class="section-header">
+          <h2 class="section-title">🔌 <span>REST API Specification</span></h2>
+        </div>
+
+        <div class="api-tabs">
+          <button class="tab-btn active" onclick="switchApiTab('auth', this)">Auth & Users (8)</button>
+          <button class="tab-btn" onclick="switchApiTab('documents', this)">Document Pipeline (6)</button>
+          <button class="tab-btn" onclick="switchApiTab('review', this)">Review Flow (3)</button>
+          <button class="tab-btn" onclick="switchApiTab('health', this)">Health & Diagnostic (2)</button>
+        </div>
+
+        <!-- Auth Endpoints -->
+        <div id="apiList_auth" class="api-endpoint-list">
+          <div class="endpoint-card">
+            <div class="endpoint-header" onclick="toggleEndpointBody(this)">
+              <span class="endpoint-method method-post">POST</span>
+              <span class="endpoint-path">/api/v1/auth/register</span>
+              <span class="endpoint-desc">Create a new user account.</span>
+            </div>
+            <div class="endpoint-body">
+              <p style="margin-bottom: 0.5rem;"><strong>Request Payload Schema:</strong></p>
+              <div class="code-block">{
+  "email": "user@example.com",
+  "password": "Password123!",
+  "full_name": "Nguyen Van A"
+}</div>
+              <p style="margin-top: 0.5rem;"><strong>Response (201 Created):</strong></p>
+              <div class="code-block">{
+  "message": "User registered successfully"
+}</div>
+            </div>
+          </div>
+
+          <div class="endpoint-card">
+            <div class="endpoint-header" onclick="toggleEndpointBody(this)">
+              <span class="endpoint-method method-post">POST</span>
+              <span class="endpoint-path">/api/v1/auth/login</span>
+              <span class="endpoint-desc">Issue access_token + refresh_token (Lockout after 5 failed attempts).</span>
+            </div>
+            <div class="endpoint-body">
+              <p style="margin-bottom: 0.5rem;"><strong>Request Payload Schema:</strong></p>
+              <div class="code-block">{
+  "email": "user@example.com",
+  "password": "Password123!"
+}</div>
+              <p style="margin-top: 0.5rem;"><strong>Response (200 OK):</strong></p>
+              <div class="code-block">{
+  "access_token": "eyJhbGciOiJIUzI1NiIsIn...",
+  "refresh_token": "eyJhbGciOiJIUzI1NiIsIn...",
+  "token_type": "bearer"
+}</div>
+            </div>
+          </div>
+
+          <div class="endpoint-card">
+            <div class="endpoint-header" onclick="toggleEndpointBody(this)">
+              <span class="endpoint-method method-post">POST</span>
+              <span class="endpoint-path">/api/v1/auth/refresh</span>
+              <span class="endpoint-desc">Rotate refresh token, issue new access token.</span>
+            </div>
+            <div class="endpoint-body">
+              <p style="margin-bottom: 0.5rem;"><strong>Request Payload Schema:</strong></p>
+              <div class="code-block">{
+  "refresh_token": "eyJhbGciOiJIUzI1NiIsIn..."
+}</div>
+              <p style="margin-top: 0.5rem;"><strong>Response (200 OK):</strong></p>
+              <div class="code-block">{
+  "access_token": "eyJhbGciOiJIUzI1NiIsIn...",
+  "refresh_token": "eyJhbGciOiJIUzI1NiIsIn...",
+  "token_type": "bearer"
+}</div>
+            </div>
+          </div>
+
+          <div class="endpoint-card">
+            <div class="endpoint-header" onclick="toggleEndpointBody(this)">
+              <span class="endpoint-method method-post">POST</span>
+              <span class="endpoint-path">/api/v1/auth/logout</span>
+              <span class="endpoint-lock">🔒</span>
+              <span class="endpoint-desc">Revoke current refresh token.</span>
+            </div>
+            <div class="endpoint-body">
+              <p style="margin-bottom: 0.5rem;"><strong>Request Headers:</strong> Requires Bearer access_token.</p>
+              <p><strong>Response (200 OK):</strong></p>
+              <div class="code-block">{
+  "message": "Logged out successfully"
+}</div>
+            </div>
+          </div>
+
+          <div class="endpoint-card">
+            <div class="endpoint-header" onclick="toggleEndpointBody(this)">
+              <span class="endpoint-method method-get">GET</span>
+              <span class="endpoint-path">/api/v1/auth/me</span>
+              <span class="endpoint-lock">🔒</span>
+              <span class="endpoint-desc">Return current authenticated user.</span>
+            </div>
+            <div class="endpoint-body">
+              <p style="margin-bottom: 0.5rem;"><strong>Request Headers:</strong> Requires Bearer access_token.</p>
+              <p><strong>Response (200 OK):</strong></p>
+              <div class="code-block">{
+  "id": "USR-123456",
+  "email": "user@example.com",
+  "full_name": "Nguyen Van A",
+  "role": "user",
+  "is_active": true
+}</div>
+            </div>
+          </div>
+
+          <div class="endpoint-card">
+            <div class="endpoint-header" onclick="toggleEndpointBody(this)">
+              <span class="endpoint-method method-post">POST</span>
+              <span class="endpoint-path">/api/v1/auth/forgot-password</span>
+              <span class="endpoint-desc">Send 6-digit OTP to user email (valid for 5 minutes).</span>
+            </div>
+            <div class="endpoint-body">
+              <p style="margin-bottom: 0.5rem;"><strong>Request Payload Schema:</strong></p>
+              <div class="code-block">{
+  "email": "user@example.com"
+}</div>
+              <p style="margin-top: 0.5rem;"><strong>Response (200 OK):</strong></p>
+              <div class="code-block">{
+  "message": "OTP sent successfully"
+}</div>
+            </div>
+          </div>
+
+          <div class="endpoint-card">
+            <div class="endpoint-header" onclick="toggleEndpointBody(this)">
+              <span class="endpoint-method method-post">POST</span>
+              <span class="endpoint-path">/api/v1/auth/verify-otp</span>
+              <span class="endpoint-desc">Verify 6-digit OTP code.</span>
+            </div>
+            <div class="endpoint-body">
+              <p style="margin-bottom: 0.5rem;"><strong>Request Payload Schema:</strong></p>
+              <div class="code-block">{
+  "email": "user@example.com",
+  "otp_code": "123456"
+}</div>
+              <p style="margin-top: 0.5rem;"><strong>Response (200 OK):</strong></p>
+              <div class="code-block">{
+  "reset_token": "temp_verified_token"
+}</div>
+            </div>
+          </div>
+
+          <div class="endpoint-card">
+            <div class="endpoint-header" onclick="toggleEndpointBody(this)">
+              <span class="endpoint-method method-post">POST</span>
+              <span class="endpoint-path">/api/v1/auth/reset-password</span>
+              <span class="endpoint-desc">Set new password with verified OTP token.</span>
+            </div>
+            <div class="endpoint-body">
+              <p style="margin-bottom: 0.5rem;"><strong>Request Payload Schema:</strong></p>
+              <div class="code-block">{
+  "reset_token": "temp_verified_token",
+  "new_password": "NewSecurePassword123!"
+}</div>
+              <p style="margin-top: 0.5rem;"><strong>Response (200 OK):</strong></p>
+              <div class="code-block">{
+  "message": "Password reset successfully"
+}</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Document Endpoints -->
+        <div id="apiList_documents" class="api-endpoint-list" style="display: none;">
+          <div class="endpoint-card">
+            <div class="endpoint-header" onclick="toggleEndpointBody(this)">
+              <span class="endpoint-method method-post">POST</span>
+              <span class="endpoint-path">/api/v1/documents</span>
+              <span class="endpoint-lock">🔒</span>
+              <span class="endpoint-desc">Upload image(s) + trigger pipeline (async). Supports two-sided uploads. Returns processing_id.</span>
+            </div>
+            <div class="endpoint-body">
+              <p><strong>Request Body (multipart/form-data):</strong></p>
+              <ul style="margin-left: 1.5rem; font-size: 0.9rem; margin-bottom: 0.5rem;">
+                <li><code>file</code>: JPG / PNG / WEBP / PDF, max 10 MB (front side).</li>
+                <li><code>back_file</code>: (Optional) JPG / PNG / WEBP / PDF, max 10 MB (back side, for two-sided cards).</li>
+              </ul>
+              <p style="margin-top: 0.5rem;"><strong>Response (202 Accepted):</strong></p>
+              <div class="code-block">{
+  "processing_id": "PRC-20260521-7H3K9F",
+  "status": "received",
+  "uploaded_at": "2026-05-21T10:14:22Z"
+}</div>
+            </div>
+          </div>
+
+          <div class="endpoint-card">
+            <div class="endpoint-header" onclick="toggleEndpointBody(this)">
+              <span class="endpoint-method method-get">GET</span>
+              <span class="endpoint-path">/api/v1/documents</span>
+              <span class="endpoint-lock">🔒</span>
+              <span class="endpoint-desc">List the current user's documents (paginated, filter by status).</span>
+            </div>
+            <div class="endpoint-body">
+              <p><strong>Query Parameters:</strong> <code>status</code> (optional, filter), <code>page</code> (default 1), <code>page_size</code> (default 20)</p>
+              <p style="margin-top: 0.5rem;"><strong>Response (200 OK):</strong></p>
+              <div class="code-block">{
+  "items": [
+    {
+      "processing_id": "PRC-20260521-7H3K9F",
+      "doc_type": "business_card",
+      "status": "ready_for_review",
+      "uploaded_at": "2026-05-21T10:14:22Z"
+    }
+  ],
+  "page": 1,
+  "page_size": 20,
+  "total": 1
+}</div>
+            </div>
+          </div>
+
+          <div class="endpoint-card">
+            <div class="endpoint-header" onclick="toggleEndpointBody(this)">
+              <span class="endpoint-method method-get">GET</span>
+              <span class="endpoint-path">/api/v1/documents/{processing_id}</span>
+              <span class="endpoint-lock">🔒</span>
+              <span class="endpoint-desc">Full state: status, extracted_fields, confidence, validation, quality_check, and metadata.</span>
+            </div>
+            <div class="endpoint-body">
+              <p><strong>Response (200 OK):</strong></p>
+              <div class="code-block">{
+  "processing_id": "PRC-20260521-7H3K9F",
+  "status": "ready_for_review",
+  "doc_type": "business_card",
+  "doc_type_confidence": 0.99,
+  "uploaded_at": "2026-05-21T10:14:22Z",
+  "processed_at": "2026-05-21T10:14:31Z",
+
+  "quality_check": {
+    "tilt": 0.02,
+    "blur": 0.05,
+    "brightness": 0.85,
+    "passed": true
+  },
+
+  "extracted_fields": {
+    "name": "NGUYEN VAN A",
+    "phone": "+84 901 234 567",
+    "email": "VAN.A@COMPANY.COM.VN",
+    "web": "WWW.COMPANY.COM.VN",
+    "position": "Giam Doc Cong Nghe",
+    "company": "CONG TY TNHH CONG NGHE XYZ",
+    "industry": null,
+    "summary": null,
+    "keywords": [],
+    "highlights": []
+  },
+
+  "normalized_fields": {
+    "name": "Nguyen Van A",
+    "phone": "+84901234567",
+    "email": "van.a@company.com.vn",
+    "web": "https://www.company.com.vn",
+    "position": "Giam Doc Cong Nghe",
+    "company": "XYZ Technology Co., Ltd",
+    "industry": "Technology",
+    "summary": "Nguyen Van A is the Chief Technology Officer at XYZ Technology Co., Ltd, leading high-scale product development.",
+    "keywords": ["CTO", "Software Architecture", "XYZ Technology"],
+    "highlights": ["10+ years of tech leadership", "Spearheaded series A product launch"]
+  },
+
+  "confidence": {
+    "overall_score": 0.97,
+    "classification": "high",
+    "field_scores": [
+      { "field_name": "name",      "score": 0.98, "classification": "high",   "auto_approved": true  },
+      { "field_name": "phone",     "score": 0.99, "classification": "high",   "auto_approved": true  },
+      { "field_name": "email",     "score": 0.94, "classification": "low",    "auto_approved": false }
+    ],
+    "requires_manual_review": false
+  },
+
+  "validation": {
+    "missing_required_fields": [],
+    "validation_results": [
+      { "field_name": "email", "rule": "email_format", "passed": true },
+      { "field_name": "phone", "rule": "phone_format", "passed": true }
+    ]
+  },
+
+  "context_metadata": {
+    "event_name": null,
+    "location": null,
+    "meeting_date": null,
+    "custom_tags": []
+  }
+}</div>
+            </div>
+          </div>
+
+          <div class="endpoint-card">
+            <div class="endpoint-header" onclick="toggleEndpointBody(this)">
+              <span class="endpoint-method method-get">GET</span>
+              <span class="endpoint-path">/api/v1/documents/{processing_id}/image</span>
+              <span class="endpoint-lock">🔒</span>
+              <span class="endpoint-desc">Stream the original uploaded image(s) (supports ?side=front or ?side=back).</span>
+            </div>
+            <div class="endpoint-body">
+              <p><strong>Query Parameters:</strong> <code>side</code> (front / back, default front)</p>
+              <p style="margin-top: 0.5rem;"><strong>Response:</strong> Streams original binary data (with appropriate MIME headers e.g., image/jpeg or image/png).</p>
+            </div>
+          </div>
+
+          <div class="endpoint-card">
+            <div class="endpoint-header" onclick="toggleEndpointBody(this)">
+              <span class="endpoint-method method-post">POST</span>
+              <span class="endpoint-path">/api/v1/documents/{processing_id}/reprocess</span>
+              <span class="endpoint-lock">🔒</span>
+              <span class="endpoint-desc">Re-run the pipeline (e.g. after a transient failure).</span>
+            </div>
+            <div class="endpoint-body">
+              <p><strong>Response (202 Accepted):</strong></p>
+              <div class="code-block">{
+  "processing_id": "PRC-20260521-7H3K9F",
+  "status": "processing",
+  "reprocessed_at": "2026-05-26T12:00:00Z"
+}</div>
+            </div>
+          </div>
+
+          <div class="endpoint-card">
+            <div class="endpoint-header" onclick="toggleEndpointBody(this)">
+              <span class="endpoint-method method-delete">DELETE</span>
+              <span class="endpoint-path">/api/v1/documents/{processing_id}</span>
+              <span class="endpoint-lock">🔒</span>
+              <span class="endpoint-desc">Soft-delete the document (allowed only before confirmed).</span>
+            </div>
+            <div class="endpoint-body">
+              <p><strong>Response (200 OK):</strong></p>
+              <div class="code-block">{
+  "message": "Document deleted successfully"
+}</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Review Endpoints -->
+        <div id="apiList_review" class="api-endpoint-list" style="display: none;">
+          <div class="endpoint-card">
+            <div class="endpoint-header" onclick="toggleEndpointBody(this)">
+              <span class="endpoint-method method-patch">PATCH</span>
+              <span class="endpoint-path">/api/v1/documents/{processing_id}/review</span>
+              <span class="endpoint-lock">🔒</span>
+              <span class="endpoint-desc">Edit fields or update smart tagging context. Edits are logged for audit.</span>
+            </div>
+            <div class="endpoint-body">
+              <p style="margin-bottom: 0.5rem;"><strong>Request Body Payload:</strong></p>
+              <div class="code-block">{
+  "edits": [
+    { "field_name": "email", "new_value": "van.a@xyz.com.vn" }
+  ],
+  "context_metadata": {
+    "event_name": "Vietnam Tech Summit 2026",
+    "location": "GEM Center, HCMC",
+    "meeting_date": "2026-05-26T12:00:00Z",
+    "custom_tags": ["high-priority", "leads"]
+  }
+}</div>
+              <p style="margin-top: 0.5rem;"><strong>Response (200 OK):</strong> Returns the updated document in the same shape as <code>GET /documents/{processing_id}</code>, with re-run validation against edited values.</p>
+            </div>
+          </div>
+
+          <div class="endpoint-card">
+            <div class="endpoint-header" onclick="toggleEndpointBody(this)">
+              <span class="endpoint-method method-post">POST</span>
+              <span class="endpoint-path">/api/v1/documents/{processing_id}/confirm</span>
+              <span class="endpoint-lock">🔒</span>
+              <span class="endpoint-desc">Validate + finalize → produces immutable FinalizedDocument. Supports ?dry_run=true.</span>
+            </div>
+            <div class="endpoint-body">
+              <p><strong>Query Parameters:</strong> <code>dry_run</code> (boolean, optional, default false).</p>
+              <p style="margin-top: 0.5rem;"><strong>Response (200 OK):</strong></p>
+              <div class="code-block">{
+  "processing_id": "PRC-20260521-7H3K9F",
+  "status": "confirmed",
+  "finalized_at": "2026-05-21T10:22:11Z",
+  "final_json": {
+    "name": "Nguyen Van A",
+    "phone": "+84901234567",
+    "email": "van.a@xyz.com.vn",
+    "web": "https://www.company.com.vn",
+    "position": "Giam Doc Cong Nghe",
+    "company": "XYZ Technology Co., Ltd",
+    "industry": "Technology",
+    "summary": "Nguyen Van A is the Chief Technology Officer at XYZ Technology Co., Ltd, leading high-scale product development.",
+    "keywords": ["CTO", "Software Architecture", "XYZ Technology"],
+    "highlights": ["10+ years of tech leadership", "Spearheaded series A product launch"]
+  },
+  "context_metadata": {
+    "event_name": "Vietnam Tech Summit 2026",
+    "location": "GEM Center, HCMC",
+    "meeting_date": "2026-05-26T12:00:00Z",
+    "custom_tags": ["high-priority", "leads"]
+  }
+}</div>
+              <p style="margin-top: 0.5rem;"><strong>Response (400 Bad Request):</strong> If required fields are missing or validation fails.</p>
+              <div class="code-block">{
+  "error": {
+    "code": "VALIDATION_FAILED",
+    "message": "Cannot confirm — required fields missing or invalid",
+    "details": {
+      "missing_required_fields": ["phone"],
+      "failed_validations": [
+        { "field_name": "email", "rule": "email_format", "passed": false }
+      ]
+    }
+  }
+}</div>
+            </div>
+          </div>
+
+          <div class="endpoint-card">
+            <div class="endpoint-header" onclick="toggleEndpointBody(this)">
+              <span class="endpoint-method method-get">GET</span>
+              <span class="endpoint-path">/api/v1/documents/{processing_id}/final</span>
+              <span class="endpoint-lock">🔒</span>
+              <span class="endpoint-desc">Get finalized JSON (only after status: confirmed).</span>
+            </div>
+            <div class="endpoint-body">
+              <p style="margin-top: 0.5rem;"><strong>Response (200 OK):</strong></p>
+              <div class="code-block">{
+  "name": "Nguyen Van A",
+  "phone": "+84901234567",
+  "email": "van.a@xyz.com.vn",
+  "web": "https://www.company.com.vn",
+  "position": "Giam Doc Cong Nghe",
+  "company": "XYZ Technology Co., Ltd",
+  "industry": "Technology",
+  "summary": "Nguyen Van A is the Chief Technology Officer at XYZ Technology Co., Ltd, leading high-scale product development.",
+  "keywords": ["CTO", "Software Architecture", "XYZ Technology"],
+  "highlights": ["10+ years of tech leadership", "Spearheaded series A product launch"]
+}</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Health Endpoints -->
+        <div id="apiList_health" class="api-endpoint-list" style="display: none;">
+          <div class="endpoint-card">
+            <div class="endpoint-header" onclick="toggleEndpointBody(this)">
+              <span class="endpoint-method method-get">GET</span>
+              <span class="endpoint-path">/api/v1/health</span>
+              <span class="endpoint-desc">Liveness probe.</span>
+            </div>
+            <div class="endpoint-body">
+              <p><strong>Response (200 OK):</strong></p>
+              <div class="code-block">{
+  "status": "healthy"
+}</div>
+            </div>
+          </div>
+
+          <div class="endpoint-card">
+            <div class="endpoint-header" onclick="toggleEndpointBody(this)">
+              <span class="endpoint-method method-get">GET</span>
+              <span class="endpoint-path">/api/v1/health/db</span>
+              <span class="endpoint-desc">MongoDB readiness probe.</span>
+            </div>
+            <div class="endpoint-body">
+              <p><strong>Response (200 OK):</strong></p>
+              <div class="code-block">{
+  "status": "connected",
+  "database": "ready",
+  "latency_ms": 12
+}</div>
+            </div>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- Section: Timeline & Sync -->
+      <section id="timeline" class="section-card">
+        <div class="section-header">
+          <h2 class="section-title">⏱️ <span>Timeline & Critical Sync</span></h2>
+        </div>
+
+        <div class="alert-banner">
+          <span class="alert-icon">⚠️</span>
+          <div class="alert-text">
+            <h4>Critical Sync Point: Contract Validation</h4>
+            <p>During Week 1, interface contracts must be finalized and locked using test assets in the <code>mock_data/</code> repository directory. This avoids late-stage redesign risks for P4, P5, and P6 mapping logic.</p>
+          </div>
+        </div>
+
+        <div class="timeline">
+          <div class="timeline-item">
+            <div class="timeline-dot"></div>
+            <span class="timeline-duration">Week 1</span>
+            <h3 class="timeline-title">Foundation & Mock Design</h3>
+            <div class="timeline-content">
+              Establish core models in <code>src/database.py</code> and base settings config class in <code>src/config.py</code>. Setup baseline schemas.
+            </div>
+          </div>
+
+          <div class="timeline-item">
+            <div class="timeline-dot"></div>
+            <span class="timeline-duration">Week 2</span>
+            <h3 class="timeline-title">Stage Specific Implementations</h3>
+            <div class="timeline-content">
+              Development on separate packages in parallel. Modules are tested locally using mock payloads.
+            </div>
+          </div>
+
+          <div class="timeline-item">
+            <div class="timeline-dot"></div>
+            <span class="timeline-duration">Week 3</span>
+            <h3 class="timeline-title">Background Orchestration</h3>
+            <div class="timeline-content">
+              Integrate background workers using Redis and ARQ to loop stages sequentially. Run end-to-end processing trials.
+            </div>
+          </div>
+
+          <div class="timeline-item">
+            <div class="timeline-dot"></div>
+            <span class="timeline-duration">Week 4</span>
+            <h3 class="timeline-title">Security (P1) & Performance Tuning</h3>
+            <div class="timeline-content">
+              Apply security dependencies to all routes. Verify password strength algorithms and lockout mechanisms. Prepare the production bundle.
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- JavaScript logic -->
+  <script>
+    // Theme Toggle
+    function toggleTheme() {
+      const currentTheme = document.documentElement.getAttribute('data-theme');
+      const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', newTheme);
+      
+      const btn = document.getElementById('themeToggleBtn');
+      btn.innerHTML = newTheme === 'dark' ? '🌓' : '☀️';
+    }
+
+    // Sidebar active item handler
+    function activateMenuItem(element) {
+      document.querySelectorAll('.menu-item').forEach(el => el.classList.remove('active'));
+      element.classList.add('active');
+    }
+
+    // Pipeline details visualizer
+    const pipelineData = {
+      'P2': 'Intake validation processes uploads by checking formats, sizes, and file signatures. Enqueues a background job using SHA-256 for duplication checks.',
+      'P3': 'Preprocessing converts layouts to standard DPI resolution standards (>= 300) and corrects rotation alignments via CV orientation models.',
+      'P4': 'Concurrently runs OCR text identification and Vision object recognition to identify coordinates of text blocks and card fields.',
+      'P5': 'Transforms raw bounding-box coordinates to expected schema keys. Applies string cleanup and phone standardization (E.164).',
+      'P6': 'Calculates the confidence values for required fields. Categories: High (>=95% with auto-approval), Low (70-95%), or Failed (<70%).',
+      'P7': 'Allows reviewers to edit fields via PATCH requests. Audits change histories. Saves confirmed records as immutable finalized docs.'
+    };
+
+    function showPipelineDetail(stageId) {
+      const box = document.getElementById('pipelineDetailBox');
+      const title = document.getElementById('pipelineDetailTitle');
+      const text = document.getElementById('pipelineDetailText');
+      
+      title.innerText = `Stage ${stageId} Info`;
+      text.innerText = pipelineData[stageId] || '';
+      box.style.display = 'block';
+      
+      // Auto scroll to detail box
+      box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    // Folder collapsing logic
+    function toggleFolder(element) {
+      const children = element.nextElementSibling;
+      if (children && children.classList.contains('node-children')) {
+        children.classList.toggle('collapsed');
+        const icon = element.querySelector('.node-icon');
+        icon.innerText = children.classList.contains('collapsed') ? '📁' : '📂';
+      }
+    }
+
+    // File inspection detail handler
+    function selectFile(filename, description) {
+      document.querySelectorAll('.file-node').forEach(el => el.classList.remove('active'));
+      
+      // Add active state to caller
+      event.currentTarget.classList.add('active');
+      
+      document.getElementById('inspectFilename').innerText = `src/${filename}`;
+      document.getElementById('inspectDesc').innerText = description;
+      
+      // Derive associated layer
+      let layer = 'Unknown';
+      if (filename.includes('auth')) layer = 'Authentication (P1)';
+      else if (filename.includes('intake')) layer = 'Image Intake (P2)';
+      else if (filename.includes('preprocess')) layer = 'Image Pre-processing (P3)';
+      else if (filename.includes('ocr')) layer = 'OCR Engine (P4)';
+      else if (filename.includes('mapping')) layer = 'Field Mapping (P5)';
+      else if (filename.includes('confidence')) layer = 'Scoring & Storage (P6)';
+      else if (filename.includes('review')) layer = 'JSON Review Flow (P7)';
+      else if (filename.includes('pipeline')) layer = 'Orchestration (Worker)';
+      else if (filename.includes('config') || filename.includes('database') || filename.includes('main')) layer = 'Foundational Setup';
+      
+      document.getElementById('inspectLayer').innerText = layer;
+    }
+
+    // API endpoints tabs
+    function switchApiTab(tabName, btnElement) {
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+      btnElement.classList.add('active');
+      
+      document.getElementById('apiList_auth').style.display = tabName === 'auth' ? 'flex' : 'none';
+      document.getElementById('apiList_documents').style.display = tabName === 'documents' ? 'flex' : 'none';
+      document.getElementById('apiList_review').style.display = tabName === 'review' ? 'flex' : 'none';
+      document.getElementById('apiList_health').style.display = tabName === 'health' ? 'flex' : 'none';
+    }
+
+    // Collapsible endpoint body toggling
+    function toggleEndpointBody(headerElement) {
+      const body = headerElement.nextElementSibling;
+      if (body) {
+        body.classList.toggle('expanded');
+      }
+    }
+  </script>
+</body>
+</html>

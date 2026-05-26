@@ -1,0 +1,73 @@
+{
+  "_comment": "Mock data and API payloads for Feature P1: Authentication and JWT.",
+  "register": {
+    "request": {
+      "email": "lachlan.perez@example.com",
+      "password": "Password123!",
+      "full_name": "Lachlan Perez"
+    },
+    "response_201": {
+      "id": "665a1b2c3d4e5f6a7b8c9d00",
+      "email": "lachlan.perez@example.com",
+      "full_name": "Lachlan Perez",
+      "role": "user",
+      "is_active": true,
+      "created_at": "2026-05-21T10:00:00Z"
+    }
+  },
+  "login": {
+    "request": {
+      "email": "lachlan.perez@example.com",
+      "password": "Password123!"
+    },
+    "response_200": {
+      "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2NjVhMWIyYzNkNGU1ZjZhN2I4YzlkMDAiLCJlbWFpbCI6ImxhY2hsYW4ucGVyZXpAZXhhbXBsZS5jb20iLCJyb2xlIjoidXNlciIsImV4cCI6MTc4NTEwODQwMH0.signature",
+      "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2NjVhMWIyYzNkNGU1ZjZhN2I4YzlkMDAiLCJqdGkiOiI5ZjhlN2Q2YS1iOTc0LTRiMjgtOGQ0NS1kMDFlYzU2MmE1YmIiLCJleHAiOjE3ODc2MTQ0MDB9.signature",
+      "token_type": "bearer"
+    },
+    "response_401": {
+      "detail": "Incorrect email or password"
+    }
+  },
+  "refresh": {
+    "request": {
+      "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2NjVhMWIyYzNkNGU1ZjZhN2I4YzlkMDAiLCJqdGkiOiI5ZjhlN2Q2YS1iOTc0LTRiMjgtOGQ0NS1kMDFlYzU2MmE1YmIiLCJleHAiOjE3ODc2MTQ0MDB9.signature"
+    },
+    "response_200": {
+      "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2NjVhMWIyYzNkNGU1ZjZhN2I4YzlkMDAiLCJlbWFpbCI6ImxhY2hsYW4ucGVyZXpAZXhhbXBsZS5jb20iLCJyb2xlIjoidXNlciIsImV4cCI6MTc4NTEwOTMwMH0.signature",
+      "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2NjVhMWIyYzNkNGU1ZjZhN2I4YzlkMDAiLCJqdGkiOiI2ZGI0NWQ4My1jZTM0LTQ0NTgtYTQxNS01MmQwOWQyMmFiYzEiLCJleHAiOjE3ODc2MTUyMDB9.signature",
+      "token_type": "bearer"
+    }
+  },
+  "me": {
+    "response_200": {
+      "id": "665a1b2c3d4e5f6a7b8c9d00",
+      "email": "lachlan.perez@example.com",
+      "full_name": "Lachlan Perez",
+      "role": "user",
+      "is_active": true,
+      "created_at": "2026-05-21T10:00:00Z",
+      "updated_at": "2026-05-21T10:05:00Z"
+    }
+  },
+  "database_documents": {
+    "user_document": {
+      "_id": { "$oid": "665a1b2c3d4e5f6a7b8c9d00" },
+      "email": "lachlan.perez@example.com",
+      "password_hash": "$2b$12$EixZaYVK1YiYi1.81e183eGrN11E.6M111N11.11111111111111",
+      "full_name": "Lachlan Perez",
+      "role": "user",
+      "is_active": true,
+      "created_at": { "$date": "2026-05-21T10:00:00Z" },
+      "updated_at": { "$date": "2026-05-21T10:05:00Z" }
+    },
+    "refresh_token_document": {
+      "_id": { "$oid": "665a1b2c3d4e5f6a7b8c9d05" },
+      "user_id": { "$oid": "665a1b2c3d4e5f6a7b8c9d00" },
+      "token_hash": "a4d3b6f2e8c85777df83be1209b5768e7c2e1f4400cf9d2b271d43123456789a",
+      "expires_at": { "$date": "2026-06-20T10:00:00Z" },
+      "revoked": false,
+      "created_at": { "$date": "2026-05-21T10:00:00Z" }
+    }
+  }
+}

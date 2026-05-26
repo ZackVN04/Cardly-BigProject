@@ -12,7 +12,7 @@
 - **User-facing only**: Endpoints expose actions a real client (mobile app, web) takes. Internal pipeline stages (preprocess → OCR → vision → mapping → confidence) are **functions called by a background worker**, not HTTP endpoints.
 - **`processing_id` is the single resource key**: every endpoint that touches a document uses `processing_id` (format `PRC-YYYYMMDD-XXXXXX`).
 - **Pipeline is async**: `POST /documents` returns immediately with `processing_id`; client polls `GET /documents/{id}` until `status: ready_for_review`.
-- **One read endpoint, full state**: `GET /documents/{id}` returns everything the client needs (status + extracted_fields + confidence + validation), no need to call 4 different endpoints.
+- **One read endpoint, full state**: `GET /documents/{id}` returns everything the client needs (status + extracted_fields + confidence + validation + quality_check + metadata), no need to call 4 different endpoints.
 
 ---
 
@@ -23,71 +23,13 @@ Owner: TBD — added at the end. Router: `app/auth/router.py` — prefix `/api/v
 | Method | Path | Description |
 |---|---|---|
 | `POST` | `/api/v1/auth/register` | Create a new user account. |
-| `POST` | `/api/v1/auth/login` | Issue `access_token` + `refresh_token`. |
+| `POST` | `/api/v1/auth/login` | Issue `access_token` + `refresh_token` (Lockout after 5 failed attempts). |
 | `POST` | `/api/v1/auth/refresh` | Rotate refresh token, issue new access token. |
 | `POST` | `/api/v1/auth/logout` 🔒 | Revoke current refresh token. |
 | `GET`  | `/api/v1/auth/me` 🔒 | Return current authenticated user. |
-
-### `POST /auth/register` — Request
-
-```json
-{
-  "email": "hui@example.com",
-  "password": "strong-password",
-  "full_name": "Hui Nguyen"
-}
-```
-
-### `POST /auth/register` — Response 201
-
-```json
-{
-  "id": "665a1b2c3d4e5f6a7b8c9d0e",
-  "email": "hui@example.com",
-  "full_name": "Hui Nguyen",
-  "role": "user",
-  "created_at": "2026-05-21T10:00:00Z"
-}
-```
-
-### `POST /auth/login` — Request
-
-```json
-{ "email": "hui@example.com", "password": "strong-password" }
-```
-
-### `POST /auth/login` — Response 200
-
-```json
-{
-  "access_token": "eyJhbGc...",
-  "refresh_token": "eyJhbGc...",
-  "token_type": "bearer",
-  "expires_in": 900
-}
-```
-
-### `POST /auth/refresh` — Request
-
-```json
-{ "refresh_token": "eyJhbGc..." }
-```
-
-### `POST /auth/refresh` — Response 200
-
-Same shape as `/auth/login`. Old refresh token is revoked (rotation).
-
-### `GET /auth/me` — Response 200
-
-```json
-{
-  "id": "665a1b2c3d4e5f6a7b8c9d0e",
-  "email": "hui@example.com",
-  "full_name": "Hui Nguyen",
-  "role": "user",
-  "is_active": true
-}
-```
+| `POST` | `/api/v1/auth/forgot-password` | Send 6-digit OTP to user email (valid for 5 minutes). |
+| `POST` | `/api/v1/auth/verify-otp` | Verify 6-digit OTP code. |
+| `POST` | `/api/v1/auth/reset-password` | Set new password with verified OTP token. |
 
 ---
 
@@ -97,17 +39,18 @@ A `Document` is the user-facing aggregate covering upload, the entire scan pipel
 
 | Method | Path | Description |
 |---|---|---|
-| `POST`   | `/api/v1/documents` 🔒 | Upload image + trigger pipeline (async). Returns `processing_id`. |
+| `POST`   | `/api/v1/documents` 🔒 | Upload image(s) + trigger pipeline (async). Supports two-sided uploads. Returns `processing_id`. |
 | `GET`    | `/api/v1/documents` 🔒 | List the current user's documents (paginated, filter by status). |
-| `GET`    | `/api/v1/documents/{processing_id}` 🔒 | Full state: status, extracted_fields, confidence, validation. Used for polling. |
-| `GET`    | `/api/v1/documents/{processing_id}/image` 🔒 | Stream the original uploaded image. |
+| `GET`    | `/api/v1/documents/{processing_id}` 🔒 | Full state: status, extracted_fields, confidence, validation, quality_check, and metadata. |
+| `GET`    | `/api/v1/documents/{processing_id}/image` 🔒 | Stream the original uploaded image(s) (supports `?side=front` or `?side=back`). |
 | `POST`   | `/api/v1/documents/{processing_id}/reprocess` 🔒 | Re-run the pipeline (e.g. after a transient failure). |
 | `DELETE` | `/api/v1/documents/{processing_id}` 🔒 | Soft-delete the document (allowed only before `confirmed`). |
 
 ### `POST /documents` — Request
 
-`multipart/form-data` with one field:
-- `file` — JPG / PNG / WEBP / PDF, max 10 MB.
+`multipart/form-data` with fields:
+- `file` — JPG / PNG / WEBP / PDF, max 10 MB (front side).
+- `back_file` — (Optional) JPG / PNG / WEBP / PDF, max 10 MB (back side, for two-sided cards).
 
 ### `POST /documents` — Response 202 Accepted
 
@@ -138,42 +81,68 @@ rejected          → intake validation failed (bad MIME, > 10 MB, duplicate, co
 {
   "processing_id": "PRC-20260521-7H3K9F",
   "status": "ready_for_review",
-  "doc_type": "passport_au",
-  "doc_type_confidence": 0.97,
+  "doc_type": "business_card",
+  "doc_type_confidence": 0.99,
   "uploaded_at": "2026-05-21T10:14:22Z",
   "processed_at": "2026-05-21T10:14:31Z",
 
+  "quality_check": {
+    "tilt": 0.02,
+    "blur": 0.05,
+    "brightness": 0.85,
+    "passed": true
+  },
+
   "extracted_fields": {
-    "document_no": "BN8038374",
-    "surname": "PEREZ",
-    "given_names": "LACHLAN",
-    "nationality": "AUSTRALIAN",
-    "date_of_birth": "2000-05-03",
-    "sex": "M",
-    "place_of_birth": "SYDNEY",
-    "date_of_issue": "2024-10-01",
-    "date_of_expiry": "2034-10-01",
-    "authority": "LONDON"
+    "name": "NGUYEN VAN A",
+    "phone": "+84 901 234 567",
+    "email": "VAN.A@COMPANY.COM.VN",
+    "web": "WWW.COMPANY.COM.VN",
+    "position": "Giam Doc Cong Nghe",
+    "company": "CONG TY TNHH CONG NGHE XYZ",
+    "industry": null,
+    "summary": null,
+    "keywords": [],
+    "highlights": []
+  },
+
+  "normalized_fields": {
+    "name": "Nguyen Van A",
+    "phone": "+84901234567",
+    "email": "van.a@company.com.vn",
+    "web": "https://www.company.com.vn",
+    "position": "Giam Doc Cong Nghe",
+    "company": "XYZ Technology Co., Ltd",
+    "industry": "Technology",
+    "summary": "Nguyen Van A is the Chief Technology Officer at XYZ Technology Co., Ltd, leading high-scale product development.",
+    "keywords": ["CTO", "Software Architecture", "XYZ Technology"],
+    "highlights": ["10+ years of tech leadership", "Spearheaded series A product launch"]
   },
 
   "confidence": {
-    "overall_score": 0.94,
-    "classification": "low",
+    "overall_score": 0.97,
+    "classification": "high",
     "field_scores": [
-      { "field_name": "document_no",     "score": 0.99, "classification": "high",   "auto_approved": true  },
-      { "field_name": "surname",         "score": 0.98, "classification": "high",   "auto_approved": true  },
-      { "field_name": "place_of_birth",  "score": 0.82, "classification": "low",    "auto_approved": false },
-      { "field_name": "authority",       "score": 0.68, "classification": "failed", "auto_approved": false }
+      { "field_name": "name",      "score": 0.98, "classification": "high",   "auto_approved": true  },
+      { "field_name": "phone",     "score": 0.99, "classification": "high",   "auto_approved": true  },
+      { "field_name": "email",     "score": 0.94, "classification": "low",    "auto_approved": false }
     ],
-    "requires_manual_review": true
+    "requires_manual_review": false
   },
 
   "validation": {
     "missing_required_fields": [],
     "validation_results": [
-      { "field_name": "document_no",    "rule": "regex_passport_au", "passed": true },
-      { "field_name": "date_of_expiry", "rule": "not_in_past",       "passed": true }
+      { "field_name": "email", "rule": "email_format", "passed": true },
+      { "field_name": "phone", "rule": "phone_format", "passed": true }
     ]
+  },
+
+  "context_metadata": {
+    "event_name": null,
+    "location": null,
+    "meeting_date": null,
+    "custom_tags": []
   }
 }
 ```
@@ -185,7 +154,7 @@ rejected          → intake validation failed (bad MIME, > 10 MB, duplicate, co
   "items": [
     {
       "processing_id": "PRC-20260521-7H3K9F",
-      "doc_type": "passport_au",
+      "doc_type": "business_card",
       "status": "ready_for_review",
       "uploaded_at": "2026-05-21T10:14:22Z"
     }
@@ -196,19 +165,7 @@ rejected          → intake validation failed (bad MIME, > 10 MB, duplicate, co
 }
 ```
 
-Query params: `?status=ready_for_review&doc_type=passport_au&page=1&page_size=20`.
-
-### `POST /documents/{processing_id}/reprocess` — Response 202
-
-```json
-{
-  "processing_id": "PRC-20260521-7H3K9F",
-  "status": "processing",
-  "reprocess_count": 1
-}
-```
-
-**Retry behavior**: each reprocess call appends new rows to `processing_history` (one per pipeline stage), never updates existing rows. This preserves the full audit trail. `reprocess_count` is derived at read time by counting `intake` stage rows in `processing_history`.
+Query params: `?status=ready_for_review&page=1&page_size=20`.
 
 ---
 
@@ -218,24 +175,31 @@ Edit-and-confirm flow over a document that is `ready_for_review`. Router: `app/r
 
 | Method | Path | Description |
 |---|---|---|
-| `PATCH` | `/api/v1/documents/{processing_id}/review` 🔒 | Edit one or more extracted fields. Edits are logged for audit. |
-| `POST`  | `/api/v1/documents/{processing_id}/confirm` 🔒 | Validate + finalize → produces immutable `FinalizedDocument`. Supports `?dry_run=true` to validate without finalizing. |
+| `PATCH` | `/api/v1/documents/{processing_id}/review` 🔒 | Edit fields or update smart tagging context. Edits are logged for audit. |
+| `POST`  | `/api/v1/documents/{processing_id}/confirm` 🔒 | Validate + finalize → produces immutable `FinalizedDocument`. Supports `?dry_run=true`. |
 | `GET`   | `/api/v1/documents/{processing_id}/final` 🔒 | Get finalized JSON (only after `status: confirmed`). |
 
 ### `PATCH /documents/{processing_id}/review` — Request
 
+Allows editing both the extracted/normalized fields and the smart tagging context.
+
 ```json
 {
   "edits": [
-    { "field_name": "place_of_birth", "new_value": "Sydney, NSW" },
-    { "field_name": "authority",      "new_value": "Sydney"     }
-  ]
+    { "field_name": "email", "new_value": "van.a@xyz.com.vn" }
+  ],
+  "context_metadata": {
+    "event_name": "Vietnam Tech Summit 2026",
+    "location": "GEM Center, HCMC",
+    "meeting_date": "2026-05-26T12:00:00Z",
+    "custom_tags": ["high-priority", "leads"]
+  }
 }
 ```
 
 ### `PATCH /documents/{processing_id}/review` — Response 200
 
-Returns the updated document in the same shape as `GET /documents/{processing_id}`, plus a re-run of validation against the edited values.
+Returns the updated document in the same shape as `GET /documents/{processing_id}`, with re-run validation against edited values.
 
 ### `POST /documents/{processing_id}/confirm` — Response 200
 
@@ -245,16 +209,25 @@ Returns the updated document in the same shape as `GET /documents/{processing_id
   "status": "confirmed",
   "finalized_at": "2026-05-21T10:22:11Z",
   "final_json": {
-    "doc_type": "passport_au",
-    "document_no": "BN8038374",
-    "surname": "Perez",
-    "given_names": "Lachlan",
-    "...": "..."
+    "name": "Nguyen Van A",
+    "phone": "+84901234567",
+    "email": "van.a@xyz.com.vn",
+    "web": "https://www.company.com.vn",
+    "position": "Giam Doc Cong Nghe",
+    "company": "XYZ Technology Co., Ltd",
+    "industry": "Technology",
+    "summary": "Nguyen Van A is the Chief Technology Officer at XYZ Technology Co., Ltd, leading high-scale product development.",
+    "keywords": ["CTO", "Software Architecture", "XYZ Technology"],
+    "highlights": ["10+ years of tech leadership", "Spearheaded series A product launch"]
+  },
+  "context_metadata": {
+    "event_name": "Vietnam Tech Summit 2026",
+    "location": "GEM Center, HCMC",
+    "meeting_date": "2026-05-26T12:00:00Z",
+    "custom_tags": ["high-priority", "leads"]
   }
 }
 ```
-
-Confirm is **idempotent** — calling it twice on a `confirmed` document returns the existing `final_json` without re-creating the record.
 
 **400 if required fields are missing or validation fails:**
 
@@ -264,30 +237,14 @@ Confirm is **idempotent** — calling it twice on a `confirmed` document returns
     "code": "VALIDATION_FAILED",
     "message": "Cannot confirm — required fields missing or invalid",
     "details": {
-      "missing_required_fields": ["date_of_expiry"],
+      "missing_required_fields": ["phone"],
       "failed_validations": [
-        { "field_name": "document_no", "rule": "regex_passport_au", "passed": false }
+        { "field_name": "email", "rule": "email_format", "passed": false }
       ]
     }
   }
 }
 ```
-
-### `POST /documents/{processing_id}/confirm?dry_run=true` — Response 200
-
-Validate the current document state **without** finalizing it. Useful for the review UI (P7 US3 — "Validate Required Fields Before Confirmation") to show a green/red indicator before the user actually commits. Status is **not** changed; no `FinalizedDocument` is created.
-
-```json
-{
-  "processing_id": "PRC-20260521-7H3K9F",
-  "dry_run": true,
-  "would_succeed": true,
-  "missing_required_fields": [],
-  "failed_validations": []
-}
-```
-
-When validation would fail, response is still 200 (it's a query, not a state change) with `would_succeed: false` and the same `missing_required_fields` / `failed_validations` arrays as the 400 case above.
 
 ---
 
@@ -304,83 +261,8 @@ When validation would fail, response is still 200 (it's a query, not a state cha
 
 | Group | Endpoints |
 |---|---|
-| Auth | 5 |
+| Auth | 8 |
 | Documents | 6 |
 | Review | 3 |
 | Health | 2 |
-| **Total** | **16** |
-
-(Down from 30+ in the previous draft. Internal pipeline stages are now functions, not HTTP routes.)
-
----
-
-## Error envelope (all 4xx / 5xx)
-
-```json
-{
-  "error": {
-    "code": "VALIDATION_ERROR",
-    "message": "File exceeds 10 MB limit",
-    "details": [{ "field": "file", "rule": "max_size_10mb" }]
-  }
-}
-```
-
-Common error codes: `UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND`, `VALIDATION_ERROR`, `VALIDATION_FAILED`, `DUPLICATE_FILE`, `INVALID_MIME`, `FILE_TOO_LARGE`, `PIPELINE_FAILED`, `INVALID_STATE` (e.g. confirming an already-confirmed document, editing a `processing` document).
-
----
-
-## How team members map to endpoints
-
-| Member | Task | Endpoints they own | Internal modules |
-|---|---|---|---|
-| TBD     | P1 Auth | `/auth/*`                          | `app/auth/`        |
-| Phúc Khang | P2 Intake & Validation | `POST /documents` (upload + validate part) | `app/intake/`   |
-| Phú Phàm | P3 Pre-processing | *(internal)*                       | `app/preprocess/`  |
-| Cuong Ngo, Nguyễn Thanh Thiệt | P4 OCR + AI Vision | *(internal)*    | `app/ocr/`, `app/vision/` |
-| **Hui** | P5 Business Field Mapping | *(internal)*           | `app/mapping/`     |
-| Nhân Tài | P6 Confidence + Storage | `GET /documents`, `GET /documents/{id}`, history | `app/confidence/` |
-| Khanh   | P7 JSON Review | `PATCH .../review`, `POST .../confirm`, `GET .../final` | `app/review/` |
-
-P3, P4, P5 don't expose HTTP endpoints — they are pipeline steps called by the background worker. Their outputs surface to the client through `GET /documents/{processing_id}`.
-
----
-
-## Pipeline orchestration (internal, for reference)
-
-```
-POST /documents (P2)
-  │
-  ▼
-┌─────────────────────────────────────────────────────────┐
-│  Background worker (Celery / ARQ / FastAPI BG task)      │
-│                                                          │
-│  intake.validate()         ← P2                          │
-│  preprocess.normalize()    ← P3                          │
-│  ocr.extract()             ← P4                          │
-│  vision.detect()           ← P4                          │
-│  mapping.map_fields()      ← P5   ← Hui                  │
-│  mapping.normalize_data()  ← P5                          │
-│  mapping.validate_rules()  ← P5                          │
-│  confidence.score()        ← P6                          │
-│  history.log_stage()       ← P6 (called after each step) │
-└─────────────────────────────────────────────────────────┘
-  │
-  ▼
-status = ready_for_review
-```
-
-When pipeline finishes, `status` flips to `ready_for_review` and the client (which has been polling `GET /documents/{processing_id}`) renders the review UI.
-
----
-
-## Branch & commit conventions
-
-- `feature/auth-jwt-login`
-- `feature/p5-passport-mapper`
-- `feature/p5-normalize-dates`
-
-Commit messages:
-- `Add JWT access + refresh token issuance`
-- `Implement passport field mapper for AU passport`
-- `Normalize date_of_birth to ISO-8601`
+| **Total** | **19** |
