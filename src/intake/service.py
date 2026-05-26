@@ -10,7 +10,6 @@ if TYPE_CHECKING:
 from fastapi import HTTPException, status, UploadFile
 from google.cloud import storage
 from PIL import Image
-from PyPDF2 import PdfReader
 
 from . import config as intake_cfg
 from . import utils
@@ -55,14 +54,7 @@ async def validate_file_format(file_content: bytes, mime_type: str) -> None:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="File content does not match declared image MIME type",
             )
-    elif mime_type == "application/pdf":
-        try:
-            PdfReader(io.BytesIO(file_content))
-        except Exception:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="File content is not a valid PDF",
-            )
+
 
 
 async def dedupe_by_hash(file_hash: str) -> None:

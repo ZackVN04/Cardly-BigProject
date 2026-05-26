@@ -1,27 +1,15 @@
-<<<<<<< HEAD
-# TODO(P2 — Phúc Khang): Implement intake tests
 import pytest
-
-
-@pytest.mark.asyncio
-async def test_upload_valid_image(client):
-    pass
-=======
-import pytest
-from unittest.mock import patch, MagicMock, AsyncMock
+from unittest.mock import patch, MagicMock
 from fastapi import status
-
 
 @pytest.fixture
 def valid_image_content():
     # A small valid PNG transparent pixel
-    return b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\nIDATx\x9cc\x00\x01\x00\x00\x05\x00\x01\r\n2\xb4\x00\x00\x00\x00IEND\xaeB`\x82'
-
+    return b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\nIDATx\x9cc\x00\x01\x00\x00\x05\x00\x01\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82'
 
 @pytest.fixture
 def invalid_mime_content():
     return b'some random text content'
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -33,7 +21,6 @@ def _make_mocks(mock_save, mock_enqueue, mock_dedupe, mock_insert, url="http://f
     mock_enqueue.return_value = None
     mock_dedupe.return_value = None
     mock_insert.return_value = MagicMock()
-
 
 # ---------------------------------------------------------------------------
 # Single-file upload tests
@@ -62,24 +49,10 @@ async def test_upload_valid_image(client, valid_image_content):
 
         mock_save.assert_called_once()
         mock_enqueue.assert_called_once()
->>>>>>> eef3597c391748df0b0ea15e61442255e1f4ab26
 
 
 @pytest.mark.asyncio
 async def test_upload_file_too_large(client):
-<<<<<<< HEAD
-    pass
-
-
-@pytest.mark.asyncio
-async def test_upload_invalid_mime(client):
-    pass
-
-
-@pytest.mark.asyncio
-async def test_upload_duplicate_file(client):
-    pass
-=======
     # Create content larger than 10MB
     large_content = b"0" * (11 * 1024 * 1024)
     files = {"file": ("large.png", large_content, "image/png")}
@@ -111,14 +84,10 @@ async def test_upload_duplicate_file(client, valid_image_content):
 
         assert response.status_code == status.HTTP_409_CONFLICT
         assert "Duplicate file" in response.json()["detail"]
->>>>>>> eef3597c391748df0b0ea15e61442255e1f4ab26
 
 
 @pytest.mark.asyncio
 async def test_upload_corrupted_file(client):
-<<<<<<< HEAD
-    pass
-=======
     # Image header but random data
     corrupted_content = b'\x89PNG\r\n\x1a\n' + b'garbage' * 10
     files = {"file": ("corrupted.png", corrupted_content, "image/png")}
@@ -201,4 +170,3 @@ async def test_upload_second_file_corrupted(client, valid_image_content):
 
     assert response.status_code == status.HTTP_400_BAD_REQUEST
     assert "corrupted or unreadable" in response.json()["detail"]
->>>>>>> eef3597c391748df0b0ea15e61442255e1f4ab26

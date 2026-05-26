@@ -1,45 +1,74 @@
 import pytest
 
+from src.common.enums import DocType
 from src.mapping.validators import (
-    is_iso_date,
-    luhn_medicare,
-    not_in_past,
-    regex_passport_au,
+    validate_email_format,
+    validate_phone_format,
+    validate_url_format,
+    validate_fields,
 )
 
 
 @pytest.mark.parametrize("value, expected", [
-    ("BN8038374", True),
-    ("A1234567", True),
-    ("12345678", False),   # no letters
-    ("ABCD1234567", False),  # too many letters
+    ("test@domain.com", True),
+    ("user.name+tag@sub.domain.co.uk", True),
+    ("invalid-email", False),
+    ("email@domain", False),
     (None, False),
 ])
-def test_regex_passport_au(value, expected):
-    assert regex_passport_au(value) == expected
+def test_validate_email_format(value, expected):
+    assert validate_email_format(value) == expected
 
 
 @pytest.mark.parametrize("value, expected", [
-    ("2134567890", True),
-    ("1234 56789 1", True),
-    ("123", False),
+    ("+84912345678", True),
+    ("0912345678", True),
+    ("+15550199", True),
+    ("123", False),       # too short
+    ("12345678901234567", False),  # too long
+    ("phone123", False),  # letters
     (None, False),
 ])
-def test_luhn_medicare(value, expected):
-    assert luhn_medicare(value) == expected
+def test_validate_phone_format(value, expected):
+    assert validate_phone_format(value) == expected
 
 
-def test_not_in_past_future_date():
-    assert not_in_past("2099-01-01") is True
+@pytest.mark.parametrize("value, expected", [
+    ("https://www.company.com", True),
+    ("http://example.com/page?query=1", True),
+    ("www.example.com", False),  # protocol missing
+    ("invalid-url", False),
+    (None, False),
+])
+def test_validate_url_format(value, expected):
+    assert validate_url_format(value) == expected
 
 
-def test_not_in_past_old_date():
-    assert not_in_past("2000-01-01") is False
+def test_validate_fields_business_card():
+    # Valid and complete
+    normalized = {
+        "name": "Nguyễn Văn A",
+        "phone": "+84912345678",
+        "email": "nguyen.vana@company.com",
+        "web": "https://www.company.com",
+    }
+    results, missing = validate_fields(DocType.BUSINESS_CARD, normalized)
 
+    assert missing == []
+    assert len(results) == 3
+    assert all(r.passed for r in results)
 
-def test_is_iso_date_valid():
-    assert is_iso_date("2024-10-01") is True
+    # Missing email (required) and invalid phone format
+    normalized_invalid = {
+        "name": "Nguyễn Văn A",
+        "phone": "invalid-phone",
+        "web": "https://www.company.com",
+    }
+    results, missing = validate_fields(DocType.BUSINESS_CARD, normalized_invalid)
 
-
-def test_is_iso_date_invalid():
-    assert is_iso_date("01-10-2024") is False
+    assert missing == ["email"]
+    # email validation rule doesn't run since it's not present
+    # phone rule runs but fails
+    assert len(results) == 2  # phone, web
+    phone_res = next(r for r in results if r.field_name == "phone")
+    assert phone_res.passed is False

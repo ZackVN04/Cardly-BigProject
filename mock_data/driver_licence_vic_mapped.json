@@ -1,0 +1,49 @@
+{
+  "_comment": "Mock output of P5 (Field Mapping) for a Victoria Australian driver licence. This is the INPUT that P6 (Confidence Scoring) and P7 (Review) receive.",
+  "_source_image": "3.jpg",
+
+  "_id": "665a1b2c3d4e5f6a7b8c9d12",
+  "processing_id": "PRC-20260521-9P5N3Q",
+  "doc_type": "driver_licence_vic",
+  "user_id": "665a1b2c3d4e5f6a7b8c9d00",
+
+  "extracted_fields": {
+    "licence_no": "987654321",
+    "full_name": "JANE CITIZEN",
+    "address": "FLAT 10, 77 SAMPLE PARADE, KEW EAST VIC 3102",
+    "date_of_birth": "1983-07-29",
+    "licence_expiry": "2019-05-20",
+    "licence_type": "CAR",
+    "conditions": "SBEAVXYZ",
+    "state": "VIC"
+  },
+
+  "normalized_fields": {
+    "licence_no": "987654321",
+    "full_name": "Jane Citizen",
+    "address": "Flat 10, 77 Sample Parade, Kew East VIC 3102",
+    "date_of_birth": "1983-07-29",
+    "licence_expiry": "2019-05-20",
+    "licence_type": "CAR",
+    "conditions": "S B E A V X Y Z",
+    "state": "VIC"
+  },
+
+  "validation_results": [
+    { "field_name": "licence_no",     "rule": "regex_vic_9_digits",        "passed": true,  "message": null },
+    { "field_name": "full_name",      "rule": "non_empty_string",          "passed": true,  "message": null },
+    { "field_name": "address",        "rule": "non_empty_string",          "passed": true,  "message": null },
+    { "field_name": "date_of_birth",  "rule": "is_iso_date",               "passed": true,  "message": null },
+    { "field_name": "date_of_birth",  "rule": "not_in_future",             "passed": true,  "message": null },
+    { "field_name": "licence_expiry", "rule": "is_iso_date",               "passed": true,  "message": null },
+    { "field_name": "licence_expiry", "rule": "not_in_past",               "passed": false, "message": "Licence expired 20-05-2019" },
+    { "field_name": "licence_type",   "rule": "in_known_licence_types",    "passed": true,  "message": null },
+    { "field_name": "conditions",     "rule": "all_letters_known_codes",   "passed": true,  "message": null },
+    { "field_name": "state",          "rule": "is_australian_state",       "passed": true,  "message": null }
+  ],
+
+  "missing_required_fields": [],
+  "mapping_status": "mapped",
+  "mapper_version": "1.0.0",
+  "mapped_at": "2026-05-21T10:14:28Z"
+}

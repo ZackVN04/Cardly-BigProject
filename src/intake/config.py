@@ -6,7 +6,7 @@ class IntakeConfig(BaseSettings):
 
     MAX_SIZE_MB: int = 10
     GCS_BUCKET_NAME: str = "cardly-images-bucket"
-    ALLOWED_MIMES: list[str] = ["image/jpeg", "image/png", "image/webp", "application/pdf"]
+    ALLOWED_MIMES: list[str] = ["image/jpeg", "image/png", "image/webp"]
 
 
 intake_settings = IntakeConfig()

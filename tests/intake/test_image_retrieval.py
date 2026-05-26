@@ -14,9 +14,14 @@ async def test_get_image_urls_single(client):
     mock_doc.user_id = PydanticObjectId()
 
     with patch("src.intake.models.UploadedImage.find_one") as mock_find_one, \
+         patch("src.intake.models.UploadedImage.find") as mock_find, \
          patch("src.intake.service.storage.Client") as mock_storage:
         
-        mock_find_one.return_value = mock_doc
+        mock_find_one.return_value = None
+        
+        mock_find_query = MagicMock()
+        mock_find_query.to_list = AsyncMock(return_value=[mock_doc])
+        mock_find.return_value = mock_find_query
         
         mock_blob = MagicMock()
         mock_blob.exists.return_value = True

@@ -2,16 +2,16 @@ AUTO_APPROVE_FLAG = "auto_approved"
 REQUIRES_REVIEW_FLAG = "requires_manual_review"
 
 BUSINESS_CARD_FIELDS = (
-    "full_name",
+    "name",
     "position",
     "company",
     "phone",
     "email",
-    "website",
+    "web",
 )
 
-BUSINESS_CARD_IDENTITY_FIELDS = ("full_name", "company")
-BUSINESS_CARD_CONTACT_FIELDS = ("email", "phone", "website")
+BUSINESS_CARD_IDENTITY_FIELDS = ("name", "company")
+BUSINESS_CARD_CONTACT_FIELDS = ("email", "phone", "web")
 
 BUSINESS_CARD_SCHEMA = {
     "document_type": "business_card",

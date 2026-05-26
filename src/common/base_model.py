@@ -1,6 +1,5 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
-from zoneinfo import ZoneInfo
 
 from pydantic import BaseModel, ConfigDict, field_serializer
 
@@ -14,6 +13,6 @@ class CustomModel(BaseModel):
     def _serialize_datetimes(self, value: Any) -> Any:
         if isinstance(value, datetime):
             if value.tzinfo is None:
-                value = value.replace(tzinfo=ZoneInfo("UTC"))
+                value = value.replace(tzinfo=timezone.utc)
             return value.strftime("%Y-%m-%dT%H:%M:%S%z")
         return value

@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from beanie import Document, Indexed, PydanticObjectId
@@ -27,7 +27,7 @@ class OcrResult(Document):
     overall_confidence: float
     language_detected: str | None = None
     ocr_version: str
-    processed_at: datetime = Field(default_factory=datetime.utcnow)
+    processed_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     class Settings:
         name = "ocr_results"
@@ -45,6 +45,8 @@ class VisionRegion(BaseModel):
 class AiVisionResult(Document):
     """AI-Vision output: document classification + semantic regions."""
 
+    model_config = {"protected_namespaces": ()}
+
     processing_id: Indexed(str)  # type: ignore[valid-type]
     preprocessed_image_id: PydanticObjectId
     doc_type: DocType
@@ -52,7 +54,7 @@ class AiVisionResult(Document):
     detected_regions: list[VisionRegion] = []
     model_name: str
     model_version: str
-    processed_at: datetime = Field(default_factory=datetime.utcnow)
+    processed_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     class Settings:
         name = "ai_vision_results"
