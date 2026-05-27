@@ -1,6 +1,4 @@
-
 import io
-import os
 import json
 import numpy as np
 from google import genai
@@ -9,30 +7,54 @@ from google.genai.types import Tool, GenerateContentConfig
 from .schemas import BusinessCard
 from .clients.paddle_client import get_ocr_engine
 from .clients.gemini_client import get_gemini_client
+from .models import BusinessCardScan
+from .constants import BusinessCardScanStatus
 
-async def pipline_ocr_to_llm(images_data: list[bytes]):
+async def save_ocr_raw_text(
+    owner_id: str,
+    processing_id: str,
+    raw_text: str,
+) -> BusinessCardScan:
+    scan = BusinessCardScan(
+        owner_id=owner_id,
+        processing_id=processing_id,
+        raw_text=raw_text,
+        status=BusinessCardScanStatus.PROCESSING,
+    )
+    await scan.insert()
+    return scan
+
+
+async def pipline_ocr_to_llm(images_data: list[bytes], owner_id: str, processing_id: str) -> tuple[BusinessCardScan, dict]:
     # Step 1: Run full OCR on the image
     ocr_engine = get_ocr_engine()
     result = []
 
-    # Chạy OCR cho từng ảnh
+    # run OCR for each image
     for image_data in images_data:
         img = Image.open(io.BytesIO(image_data)).convert('RGB')
         img_np = np.array(img)
         result.append(ocr_engine.ocr(img_np))
 
-    print("OCR Result: ", json.dumps(result, indent=4))
-
-    # Chuẩn bị dữ liệu đầu vào cho LLM
+    # print("OCR Result: ", json.dumps(result, indent=4))
+    
+    # build ocr_texts — guard page[0] nếu OCR không detect được vùng text
     ocr_texts = []
     for page in result:
-        for block in page[0]:
+        for block in (page[0] if page else []):
             ocr_texts.append(block[1][0])
     ocr_text = "\n".join(ocr_texts)
 
+    if not ocr_text.strip():
+        raise RuntimeError("OCR extracted no text from the provided images")
+
+    try:
+        scan = await save_ocr_raw_text(owner_id, processing_id, ocr_text)
+    except Exception as e:
+        raise RuntimeError(f"Failed to save OCR result to DB: {e}") from e
+
     # Step 2: Send the extracted text to LLM
     client = get_gemini_client()
-        
     prompt = f"""
         You are an AI expert in Document Information Extraction.
         If a field is not present or cannot be read, set value to null and confidence to 0.0.
@@ -55,4 +77,8 @@ async def pipline_ocr_to_llm(images_data: list[bytes]):
         response_text = response_text[7:-3]
     elif response_text.startswith("```"):
         response_text = response_text[3:-3]
-    return json.loads(response_text)
+
+    try:
+        return scan, json.loads(response_text)
+    except json.JSONDecodeError as e:
+        raise RuntimeError(f"LLM returned invalid JSON: {e}") from e
