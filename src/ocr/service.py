@@ -1,27 +1,18 @@
+
 import io
 import os
 import json
 import numpy as np
 from google import genai
 from PIL import Image
-
 from google.genai.types import Tool, GenerateContentConfig
-
-from dotenv import load_dotenv
-
-load_dotenv()
-
-from paddleocr import PaddleOCR
-
 from .schemas import BusinessCard
-
+from .clients.paddle_client import get_ocr_engine
+from .clients.gemini_client import get_gemini_client
 
 async def pipline_ocr_to_llm(images_data: list[bytes]):
     # Step 1: Run full OCR on the image
-    ocr_engine = PaddleOCR(
-        use_textline_orientation=True,
-        lang='en',
-    )
+    ocr_engine = get_ocr_engine()
     result = []
 
     # Chạy OCR cho từng ảnh
@@ -40,8 +31,7 @@ async def pipline_ocr_to_llm(images_data: list[bytes]):
     ocr_text = "\n".join(ocr_texts)
 
     # Step 2: Send the extracted text to LLM
-    api_key = os.getenv("GEMINI_API_KEY")
-    client = genai.Client(api_key=api_key)
+    client = get_gemini_client()
         
     prompt = f"""
         You are an AI expert in Document Information Extraction.
