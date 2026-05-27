@@ -61,7 +61,10 @@ async def verify_otp(body: VerifyOtpRequest) -> MessageResponse:
     summary="Log in and receive token pair",
 )
 async def login(body: LoginRequest) -> TokenResponse:
-    tokens = await service.login(email=body.email, password=body.password)
+    tokens = await service.login(
+        email=body.email,
+        password=body.password,
+    )
     return TokenResponse(**tokens)
 
 
