@@ -24,6 +24,7 @@ async def save_ocr_raw_text(
     await scan.insert()
     return scan
 
+
 async def pipline_ocr_to_llm(images_data: list[bytes], owner_id: str, processing_id: str) -> tuple[BusinessCardScan, dict]:
     # Step 1: Run full OCR on the image
     ocr_engine = get_ocr_engine()
@@ -37,12 +38,15 @@ async def pipline_ocr_to_llm(images_data: list[bytes], owner_id: str, processing
 
     # print("OCR Result: ", json.dumps(result, indent=4))
     
-    # build ocr_texts
+    # build ocr_texts — guard page[0] nếu OCR không detect được vùng text
     ocr_texts = []
     for page in result:
-        for block in page[0]:
+        for block in (page[0] if page else []):
             ocr_texts.append(block[1][0])
     ocr_text = "\n".join(ocr_texts)
+
+    if not ocr_text.strip():
+        raise RuntimeError("OCR extracted no text from the provided images")
 
     try:
         scan = await save_ocr_raw_text(owner_id, processing_id, ocr_text)
@@ -73,4 +77,8 @@ async def pipline_ocr_to_llm(images_data: list[bytes], owner_id: str, processing
         response_text = response_text[7:-3]
     elif response_text.startswith("```"):
         response_text = response_text[3:-3]
-    return scan, json.loads(response_text)
+
+    try:
+        return scan, json.loads(response_text)
+    except json.JSONDecodeError as e:
+        raise RuntimeError(f"LLM returned invalid JSON: {e}") from e
