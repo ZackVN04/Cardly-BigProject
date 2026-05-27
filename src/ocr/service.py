@@ -55,5 +55,4 @@ async def pipline_ocr_to_llm(images_data: list[bytes]):
         response_text = response_text[7:-3]
     elif response_text.startswith("```"):
         response_text = response_text[3:-3]
-        
     return json.loads(response_text)
