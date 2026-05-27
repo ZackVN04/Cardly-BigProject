@@ -1,25 +1,16 @@
 from datetime import datetime
-from enum import Enum
 
-from beanie import Document, Indexed
+from beanie import Document, Indexed, PydanticObjectId
 from pydantic import EmailStr, Field
-from beanie import PydanticObjectId
-
-
-class UserRole(str, Enum):
-    USER = "user"
-    REVIEWER = "reviewer"
-    ADMIN = "admin"
 
 
 class User(Document):
-    """Application user (uploader / reviewer / admin)."""
+    """Application user — stores credentials and activation state."""
 
     email: Indexed(EmailStr, unique=True)  # type: ignore[valid-type]
     password_hash: str
     full_name: str
-    role: UserRole = UserRole.USER
-    is_active: bool = True
+    is_active: bool = False
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -28,7 +19,7 @@ class User(Document):
 
 
 class RefreshToken(Document):
-    """Hashed refresh tokens for JWT rotation."""
+    """Hashed refresh token stored per session.  Revoked on logout / password reset."""
 
     user_id: PydanticObjectId
     token_hash: Indexed(str, unique=True)  # type: ignore[valid-type]
@@ -38,3 +29,17 @@ class RefreshToken(Document):
 
     class Settings:
         name = "refresh_tokens"
+
+
+class OtpCode(Document):
+    """Hashed one-time-password for email verification and password reset."""
+
+    email: Indexed(EmailStr)  # type: ignore[valid-type]
+    otp_hash: str
+    purpose: str          # "verify_email" | "reset_password"
+    expires_at: datetime
+    used: bool = False
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+    class Settings:
+        name = "otp_codes"
