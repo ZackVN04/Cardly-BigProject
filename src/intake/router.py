@@ -42,7 +42,7 @@ async def upload_document(
 
     entries: list[schemas.FileEntry] = []
     for f in files_to_process:
-        doc, url = await service.ingest_single_file(f, processing_id)
+        doc, url = await service.ingest_single_file(str(current_user.id), f, processing_id)
         entries.append(
             schemas.FileEntry(original_filename=doc.original_filename, file_url=url)
         )
