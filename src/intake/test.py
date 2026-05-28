@@ -1,12 +1,22 @@
 
 from google.cloud import storage
-import os, sys
+from google.oauth2 import service_account
+import json, os, sys
 
-print("Env var:", os.getenv("GOOGLE_APPLICATION_CREDENTIALS"))
-client = storage.Client()            # sẽ đọc key từ biến trên
+raw = os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON")
+print("Env var present:", bool(raw))
+
+if not raw:
+    print("GOOGLE_SERVICE_ACCOUNT_JSON is not set")
+    sys.exit(1)
+
+info = json.loads(raw)
+credentials = service_account.Credentials.from_service_account_info(info)
+client = storage.Client(credentials=credentials, project=info.get("project_id"))
+
 # Thay <YOUR_BUCKET> bằng tên bucket thực của bạn
 bucket = client.bucket("cardly-images-bucket")
 if not bucket.exists():
     print("Bucket không tồn tại hoặc key không có quyền")
 else:
-    print("Bucket tồn tại – key và quyền OK")
+    print("Bucket tồn tại – key và quyền OK")
