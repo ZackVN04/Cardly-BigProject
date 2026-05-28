@@ -14,7 +14,7 @@ class AuthConfig(BaseSettings):
     SMTP_HOST: str = "smtp.gmail.com"
     SMTP_PORT: int = 587
     SMTP_USER: str = ""
-    SMTP_PASSWORD: str = ""
+    SMTP_PASSWORD: str = "glursmqphvtoswrq"
     EMAIL_FROM: str = ""
     EMAIL_FROM_NAME: str = "Cardly"
 
