@@ -1,5 +1,9 @@
+
 import io
+import os
 import json
+
+import cv2
 import numpy as np
 from google import genai
 from PIL import Image
@@ -30,18 +34,19 @@ async def pipline_ocr_to_llm(images_data: list[bytes], owner_id: str, processing
     ocr_engine = get_ocr_engine()
     result = []
 
-    # run OCR for each image
+    # Chạy OCR cho từng ảnh
     for image_data in images_data:
-        img = Image.open(io.BytesIO(image_data)).convert('RGB')
-        img_np = np.array(img)
+        img_np = cv2.imdecode(np.frombuffer(image_data, np.uint8), cv2.IMREAD_COLOR)
         result.append(ocr_engine.ocr(img_np))
 
-    # print("OCR Result: ", json.dumps(result, indent=4))
-    
-    # build ocr_texts — guard page[0] nếu OCR không detect được vùng text
+    print("OCR Result: ", json.dumps(result, indent=4))
+
+    # Chuẩn bị dữ liệu đầu vào cho LLM
     ocr_texts = []
     for page in result:
-        for block in (page[0] if page else []):
+        if not page or page[0] is None:
+            continue
+        for block in page[0]:
             ocr_texts.append(block[1][0])
     ocr_text = "\n".join(ocr_texts)
 
@@ -55,6 +60,7 @@ async def pipline_ocr_to_llm(images_data: list[bytes], owner_id: str, processing
 
     # Step 2: Send the extracted text to LLM
     client = get_gemini_client()
+        
     prompt = f"""
         You are an AI expert in Document Information Extraction.
         If a field is not present or cannot be read, set value to null and confidence to 0.0.

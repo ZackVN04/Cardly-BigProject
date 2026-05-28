@@ -16,7 +16,6 @@ async def valid_upload_file(file: UploadFile) -> UploadFile:
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Uploaded file is empty",
         )
-
     await service.validate_size(len(content))
     await service.detect_corrupted(content, file.content_type or "application/octet-stream")
     await service.validate_file_format(content, file.content_type or "application/octet-stream")
