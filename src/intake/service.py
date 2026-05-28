@@ -3,7 +3,6 @@ from __future__ import annotations
 import io
 from datetime import datetime, timedelta
 from typing import Iterator, TYPE_CHECKING
-from src.auth.dependencies import get_current_user
 
 if TYPE_CHECKING:
     from .models import UploadedImage
@@ -58,19 +57,29 @@ async def validate_file_format(file_content: bytes, mime_type: str) -> None:
 
 
 
-async def dedupe_by_hash(file_hash: str) -> None:
-    """Raise 409 if a document with the same SHA-256 hash already exists in DB."""
+async def dedupe_by_hash(file_hash: str, user_id: str) -> None:
+    """Raise 409 if a document with the same SHA-256 hash already exists in DB for this user."""
     # Local import to avoid circular dependency with models.py
     from src.intake.models import UploadedImage, ImageStatus
+    from beanie import PydanticObjectId
 
-    existing = await UploadedImage.find_one(
+    criteria = [
         UploadedImage.file_hash_sha256 == file_hash,
-        UploadedImage.status != ImageStatus.REJECTED_DUPLICATE,
-    )
+        UploadedImage.status != ImageStatus.REJECTED_DUPLICATE
+    ]
+
+    if user_id != "MOCK_USER":
+        try:
+            user_oid = PydanticObjectId(user_id)
+            criteria.append(UploadedImage.user_id == user_oid)
+        except Exception:
+            pass
+
+    existing = await UploadedImage.find_one(*criteria)
     if existing is not None:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Duplicate file detected (same SHA-256 hash)",
+            detail="Duplicate file detected for this user (same SHA-256 hash)",
         )
 
 
@@ -101,26 +110,15 @@ def _generate_signed_url(storage_path: str, client: storage.Client | None = None
     return blob.generate_signed_url(version="v4", expiration=timedelta(hours=1), method="GET")
 
 
-async def save_to_storage(file_content: bytes, filename: str, processing_id: str) -> str:
+async def save_to_storage(file_content: bytes, filename: str, processing_id: str, user_id: str) -> str:
     """Upload the file bytes to Google Cloud Storage and return a signed URL."""
     client = _get_storage_client()
-    storage_path = f"{processing_id}/{filename}"
+    storage_path = f"{user_id}/{processing_id}/{filename}"
     bucket = client.bucket(intake_cfg.intake_settings.GCS_BUCKET_NAME)
     blob = bucket.blob(storage_path)
     blob.upload_from_string(file_content)
 
     return _generate_signed_url(storage_path, client=client)
-
-
-async def enqueue_pipeline_task(processing_id: str) -> None:
-    """Push a pipeline task to the ARQ/Redis queue."""
-    try:
-        import arq
-        redis = await arq.create_pool(arq.connections.RedisSettings.from_dsn(global_cfg.REDIS_URL))
-        await redis.enqueue_job("process_document", processing_id)
-        await redis.aclose()
-    except Exception as exc:
-        print(f"[intake] enqueue_pipeline_task skipped ({exc!r}) — processing_id={processing_id}")
 
 
 async def ingest_single_file(current_user_id: str,
@@ -131,27 +129,26 @@ async def ingest_single_file(current_user_id: str,
 
     Returns (UploadedImage document, signed GCS URL).
     Both files in a multi-upload share the same ``processing_id`` and are
-    stored under the same ``{processing_id}/`` folder in GCS.
+    stored under the same ``{user_id}/{processing_id}/`` folder in GCS.
     """
     from src.intake.models import UploadedImage, ImageStatus
     filename = file.filename or "unnamed_document"
-    print(file.filename)
     mime_type = file.content_type or "application/octet-stream"
 
     content = await file.read()
 
     file_hash = utils.sha256_of_file(content)
-    await dedupe_by_hash(file_hash)
+    await dedupe_by_hash(file_hash, current_user_id)
 
     width, height = await get_image_dimensions(content)
 
-    url = await save_to_storage(content, filename, processing_id)
+    url = await save_to_storage(content, filename, processing_id, current_user_id)
 
     doc = UploadedImage(
         processing_id=processing_id,
         user_id=current_user_id,
         original_filename=filename,
-        storage_path=f"{processing_id}/{filename}",
+        storage_path=f"{current_user_id}/{processing_id}/{filename}",
         mime_type=mime_type,
         file_size=len(content),
         file_hash_sha256=file_hash,
@@ -159,8 +156,7 @@ async def ingest_single_file(current_user_id: str,
         height=height,
         status=ImageStatus.RECEIVED,
     )
-    res = await doc.insert()
-    print(res)
+    await doc.insert()
     return doc, url
 
 
