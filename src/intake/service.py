@@ -3,6 +3,7 @@ from __future__ import annotations
 import io
 from datetime import datetime, timedelta
 from typing import Iterator, TYPE_CHECKING
+from src.auth.dependencies import get_current_user
 
 if TYPE_CHECKING:
     from .models import UploadedImage
@@ -122,7 +123,7 @@ async def enqueue_pipeline_task(processing_id: str) -> None:
         print(f"[intake] enqueue_pipeline_task skipped ({exc!r}) — processing_id={processing_id}")
 
 
-async def ingest_single_file(
+async def ingest_single_file(current_user_id: str,
     file: UploadFile,
     processing_id: str,
 ) -> tuple[UploadedImage, str]:
@@ -133,7 +134,6 @@ async def ingest_single_file(
     stored under the same ``{processing_id}/`` folder in GCS.
     """
     from src.intake.models import UploadedImage, ImageStatus
-
     filename = file.filename or "unnamed_document"
     print(file.filename)
     mime_type = file.content_type or "application/octet-stream"
@@ -149,7 +149,7 @@ async def ingest_single_file(
 
     doc = UploadedImage(
         processing_id=processing_id,
-        user_id=None,  # replaced by real user_id when P1 Auth is wired in
+        user_id=current_user_id,
         original_filename=filename,
         storage_path=f"{processing_id}/{filename}",
         mime_type=mime_type,
