@@ -26,6 +26,8 @@ import logging
 from fastapi import HTTPException, status
 from google.cloud import storage
 
+from src.auth.models import User
+from src.ocr.models import BusinessCardScan
 from src.intake import config as intake_cfg
 from src.config import settings as global_cfg
 from src.preprocess.adapter import preprocess_image_bytes
@@ -85,7 +87,7 @@ async def _download_images_from_gcs(processing_id: str) -> list[bytes]:
     return images_raw
 
 
-async def run_ocr_pipeline(processing_id: str) -> dict:
+async def run_ocr_pipeline(processing_id: str, user: User) -> dict:
     """Run the full preprocess → OCR pipeline for an already-uploaded document.
 
     Parameters
@@ -108,7 +110,14 @@ async def run_ocr_pipeline(processing_id: str) -> dict:
     images_data: list[bytes] = await preprocess_image_bytes(images_raw)
 
     # Step 3: OCR + LLM extraction — list[bytes] → dict
-    result: dict = await pipline_ocr_to_llm(images_raw)
+    cardscan: BusinessCardScan
+    result: dict
+
+    cardscan, result = await pipline_ocr_to_llm(
+        images_raw,
+        str(user.id),
+        processing_id
+    )
 
     logger.info("OCR pipeline completed for processing_id='%s'", processing_id)
     return result

@@ -13,7 +13,10 @@ Authentication: this endpoint is public — no token required.
 """
 
 from fastapi import APIRouter, status
+from fastapi.params import Depends
 
+from src.auth.dependencies import get_current_user
+from src.auth.models import User
 from src.pipeline.ocr_pipeline import run_ocr_pipeline
 from .schemas import BusinessCard
 
@@ -26,7 +29,7 @@ router = APIRouter()
     status_code=status.HTTP_200_OK,
     summary="Run the full preprocess → OCR pipeline on an already-uploaded document",
 )
-async def ocr_pipeline(processing_id: str) -> BusinessCard:
+async def ocr_pipeline(processing_id: str, user: User = Depends(get_current_user))-> BusinessCard:
     """Download the image(s) for *processing_id* from GCS, preprocess them,
     run OCR extraction, and return the structured result.
 
@@ -39,5 +42,5 @@ async def ocr_pipeline(processing_id: str) -> BusinessCard:
     Raises **404** if no documents are found for the given ``processing_id``.
     Raises **502** if a GCS download fails.
     """
-    result = await run_ocr_pipeline(processing_id)
+    result = await run_ocr_pipeline(processing_id, user)
     return BusinessCard(**result)
