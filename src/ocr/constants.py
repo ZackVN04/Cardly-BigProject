@@ -1,3 +1,5 @@
+from enum import Enum
+
 SUPPORTED_DOC_TYPES = ["passport_au", "medicare", "driver_licence_vic", "unknown"]
 
 # Region labels used in AiVisionResult.detected_regions — must match mock_data exactly
@@ -13,3 +15,9 @@ REGION_LABELS_DRIVER_LICENCE_VIC = [
     "licence_no", "full_name", "address", "date_of_birth",
     "licence_expiry", "licence_type", "conditions", "state",
 ]
+
+class BusinessCardScanStatus(str, Enum):
+    PENDING = "pending"
+    PROCESSING = "processing"
+    COMPLETED = "completed"
+    FAILED = "failed"

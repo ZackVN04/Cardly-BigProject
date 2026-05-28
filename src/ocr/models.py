@@ -1,10 +1,12 @@
 from datetime import datetime, timezone
-from typing import Any
+from enum import Enum
+from typing import Any, Optional
 
 from beanie import Document, Indexed, PydanticObjectId
 from pydantic import BaseModel, Field
 
 from src.common.enums import DocType
+from .constants import BusinessCardScanStatus
 
 
 class OcrBlock(BaseModel):
@@ -58,3 +60,17 @@ class AiVisionResult(Document):
 
     class Settings:
         name = "ai_vision_results"
+
+class BusinessCardScan(Document):
+    owner_id: Indexed(str)
+    processing_id: Indexed(str)
+    raw_text: str = ""
+    status: BusinessCardScanStatus = BusinessCardScanStatus.PENDING
+    extracted_data: dict[str, Any] = Field(default_factory=dict)
+    confidence_score: float = 0.0
+    scanned_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc)
+    )
+
+    class Settings:
+        name = "business_card_scans"
