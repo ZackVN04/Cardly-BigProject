@@ -15,6 +15,10 @@ class BaseMapper(ABC):
         self.vision = vision_result
         self._blocks: list[dict] = ocr_result.get("blocks", [])
         self._regions: list[dict] = vision_result.get("detected_regions", [])
+        # Populated by extract(): maps field_name → list of OCR block ids used.
+        # P6 uses this to look up per-block OCR confidence scores.
+        self.field_block_refs: dict[str, list[str]] = {}
+
 
     @abstractmethod
     def extract(self) -> dict[str, Any]:

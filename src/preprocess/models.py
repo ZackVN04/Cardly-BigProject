@@ -1,9 +1,7 @@
 from datetime import datetime
 from enum import Enum
-from typing import Optional
 
-from beanie import Document, Indexed
-from beanie import PydanticObjectId
+from beanie import Document, Indexed, PydanticObjectId
 from pydantic import Field
 
 
@@ -27,7 +25,7 @@ class PreprocessedImage(Document):
     output_format: str = "png"
     preprocessing_status: PreprocessingStatus = PreprocessingStatus.PENDING
     steps_applied: list[str] = []
-    error_message: Optional[str] = None
+    error_message: str | None = None
     processed_at: datetime = Field(default_factory=datetime.utcnow)
 
     class Settings:

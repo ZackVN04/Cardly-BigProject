@@ -242,7 +242,7 @@ def test_classify_field_thresholds():
 def test_rejects_non_business_card_document_type():
     with pytest.raises(UnsupportedDocumentType):
         build_field_scores(
-            document_type=DocType.PASSPORT_AU,
+            document_type=DocType.UNKNOWN,
             normalized_fields={},
             validation_results={},
             field_block_refs={},

@@ -2,8 +2,8 @@ import re
 from typing import Any
 
 from src.common.enums import DocType
-from src.mapping.models import FieldValidationResult
 from src.mapping.constants import REQUIRED_FIELDS
+from src.mapping.models import FieldValidationResult
 
 
 def validate_email_format(value: str | None) -> bool:

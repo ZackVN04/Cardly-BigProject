@@ -14,6 +14,7 @@ from __future__ import annotations
 import logging
 
 import cv2
+
 from .config import preprocess_settings
 from .service import preprocess_pipeline_in_memory
 

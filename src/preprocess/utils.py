@@ -14,7 +14,6 @@ so they are easy to unit-test without a database or storage layer.
 from __future__ import annotations
 
 import logging
-from typing import Optional
 
 import cv2
 import numpy as np
@@ -52,7 +51,7 @@ def _binarize(gray: np.ndarray) -> np.ndarray:
 # Method 1 — pytesseract OSD (Orientation & Script Detection)
 # ---------------------------------------------------------------------------
 
-def _detect_orientation_osd(gray: np.ndarray) -> Optional[int]:
+def _detect_orientation_osd(gray: np.ndarray) -> int | None:
     """
     Use Tesseract OSD to detect the dominant rotation (0, 90, 180, 270).
 
@@ -276,10 +275,7 @@ def detect_and_correct_orientation(img: np.ndarray) -> tuple[np.ndarray, int]:
             binary_90 = _binarize(_to_gray(img_90))
             is_upside_down = _is_upside_down_histogram(binary_90)
             print(f"Landscape check: rotating 90 deg. is_upside_down = {is_upside_down}")
-            if is_upside_down:
-                coarse_rotation = 270
-            else:
-                coarse_rotation = 90
+            coarse_rotation = 270 if is_upside_down else 90
             print(
                 f"OSD not available; projection variance analysis → landscape text detected, coarse rotation={coarse_rotation}°"
             )
@@ -294,10 +290,7 @@ def detect_and_correct_orientation(img: np.ndarray) -> tuple[np.ndarray, int]:
     else:
         print(f"OSD → coarse rotation={coarse_rotation}°")
 
-    if coarse_rotation != 0:
-        corrected = rotate_fixed(img, coarse_rotation)
-    else:
-        corrected = img.copy()
+    corrected = rotate_fixed(img, coarse_rotation) if coarse_rotation != 0 else img.copy()
 
     # --- Step 2: fine skew correction via Hough ---
     gray_corrected = _to_gray(corrected)

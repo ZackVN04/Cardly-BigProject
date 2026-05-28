@@ -18,9 +18,7 @@ from __future__ import annotations
 
 import logging
 import os
-import shutil
 import uuid
-from typing import Optional
 
 import cv2
 import numpy as np
@@ -44,7 +42,7 @@ async def preprocess_pipeline(
     source_path: str,
     source_image_id: PydanticObjectId,
     *,
-    manual_rotation: Optional[int] = None,
+    manual_rotation: int | None = None,
     source_dpi: int = 96,
     output_format: str = preprocess_settings.OUTPUT_FORMAT,
 ) -> PreprocessedImage:
@@ -167,7 +165,7 @@ async def preprocess_pipeline(
 async def preprocess_pipeline_in_memory(
     file_bytes: bytes,
     *,
-    manual_rotation: Optional[int] = None,
+    manual_rotation: int | None = None,
     source_dpi: int = 96,
     output_format: str = preprocess_settings.OUTPUT_FORMAT,
 ) -> tuple[np.ndarray, dict]:
@@ -220,7 +218,7 @@ async def preprocess_pipeline_in_memory(
 
     except Exception as exc:
         logger.exception("In-memory pipeline unexpected error")
-        if not isinstance(exc, (PreprocessFailed, ImageDistorted, MemoryOverflow)):
+        if not isinstance(exc, PreprocessFailed | ImageDistorted | MemoryOverflow):
             raise PreprocessFailed(message=str(exc)) from exc
         raise
 

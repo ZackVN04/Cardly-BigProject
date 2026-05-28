@@ -3,9 +3,6 @@ from enum import Enum
 
 class DocType(str, Enum):
     BUSINESS_CARD = "business_card"
-    PASSPORT_AU = "passport_au"
-    MEDICARE = "medicare"
-    DRIVER_LICENCE_VIC = "driver_licence_vic"
     UNKNOWN = "unknown"
 
 

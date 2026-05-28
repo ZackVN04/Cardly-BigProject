@@ -19,8 +19,8 @@ async def map_document_fields(
       5. Persist and return MappedDocument
     """
     from src.mapping import constants as mapping_constants
-    from src.mapping.mappers.business_card import BusinessCardMapper
     from src.mapping import normalizers, validators
+    from src.mapping.mappers.business_card import BusinessCardMapper
 
     mapper_map = {
         DocType.BUSINESS_CARD: BusinessCardMapper,
@@ -51,8 +51,12 @@ async def map_document_fields(
         normalized_fields=normalized,
         validation_results=validation_results,
         missing_required_fields=missing,
+        # field_block_refs: populated by mapper.extract(); enables P6 to look up
+        # the OCR block confidence score for each mapped field.
+        field_block_refs=getattr(mapper, "field_block_refs", {}),
         mapping_status="mapped" if not missing else "partial",
         mapper_version=mapping_constants.MAPPER_VERSION,
     )
     await doc.insert()
     return doc
+
