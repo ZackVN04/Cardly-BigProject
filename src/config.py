@@ -1,4 +1,3 @@
-import os
 from google.oauth2 import service_account
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -21,12 +20,12 @@ class Config(BaseSettings):
     CORS_ORIGINS: list[str] = ["http://localhost:3000"]
     SENTRY_DSN: str | None = None
 
-    GOOGLE_APPLICATION_CREDENTIALS: str | None = None
+    GOOGLE_SERVICE_ACCOUNT_JSON: dict | None = None
 
     @property
     def gcs_credentials(self) -> service_account.Credentials | None:
-        if self.GOOGLE_APPLICATION_CREDENTIALS and os.path.exists(self.GOOGLE_APPLICATION_CREDENTIALS):
-            return service_account.Credentials.from_service_account_file(self.GOOGLE_APPLICATION_CREDENTIALS)
+        if self.GOOGLE_SERVICE_ACCOUNT_JSON:
+            return service_account.Credentials.from_service_account_info(self.GOOGLE_SERVICE_ACCOUNT_JSON)
         return None
 
 
