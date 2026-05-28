@@ -14,6 +14,7 @@ from src.auth.router import router as auth_router
 from src.intake.router import router as intake_router
 from src.confidence.router import router as confidence_router
 from src.review.router import router as review_router
+from src.ocr.router import router as ocr_router
 
 
 @asynccontextmanager
@@ -47,6 +48,7 @@ app.include_router(auth_router,       prefix="/api/v1/auth",      tags=["auth"])
 app.include_router(intake_router,     prefix="/api/v1/documents", tags=["documents"])
 app.include_router(confidence_router, prefix="/api/v1/documents", tags=["documents"])
 app.include_router(review_router,     prefix="/api/v1/documents", tags=["review"])
+app.include_router(ocr_router,        prefix="/api/v1/ocr",       tags=["ocr"])
 
 
 @app.get("/api/v1/health", tags=["health"])

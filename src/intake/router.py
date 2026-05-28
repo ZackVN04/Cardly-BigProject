@@ -48,7 +48,7 @@ async def upload_document(
         )
 
     # Enqueue one pipeline task per submission (not per file)
-    await service.enqueue_pipeline_task(processing_id)
+    # await service.enqueue_pipeline_task(processing_id)
 
     return schemas.UploadResponse(processing_id=processing_id, files=entries)
 

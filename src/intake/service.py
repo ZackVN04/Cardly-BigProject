@@ -135,6 +135,7 @@ async def ingest_single_file(
     from src.intake.models import UploadedImage, ImageStatus
 
     filename = file.filename or "unnamed_document"
+    print(file.filename)
     mime_type = file.content_type or "application/octet-stream"
 
     content = await file.read()
@@ -158,8 +159,8 @@ async def ingest_single_file(
         height=height,
         status=ImageStatus.RECEIVED,
     )
-    await doc.insert()
-
+    res = await doc.insert()
+    print(res)
     return doc, url
 
 

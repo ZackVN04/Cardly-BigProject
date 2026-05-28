@@ -1,10 +1,8 @@
 
-import io
-import os
 import json
 import numpy as np
+import cv2
 from google import genai
-from PIL import Image
 from google.genai.types import Tool, GenerateContentConfig
 from .schemas import BusinessCard
 from .clients.paddle_client import get_ocr_engine
@@ -14,18 +12,25 @@ async def pipline_ocr_to_llm(images_data: list[bytes]):
     # Step 1: Run full OCR on the image
     ocr_engine = get_ocr_engine()
     result = []
-
+    if images_data is None:
+        return result
     # Chạy OCR cho từng ảnh
+    # cv2.imdecode produces a BGR array, which is what PaddleOCR expects.
+    # PIL.Image.convert('RGB') was used before, producing an RGB array that
+    # caused PaddleOCR's text detector to silently return None.
     for image_data in images_data:
-        img = Image.open(io.BytesIO(image_data)).convert('RGB')
-        img_np = np.array(img)
+        img_np = cv2.imdecode(np.frombuffer(image_data, np.uint8), cv2.IMREAD_COLOR)
         result.append(ocr_engine.ocr(img_np))
 
     print("OCR Result: ", json.dumps(result, indent=4))
 
     # Chuẩn bị dữ liệu đầu vào cho LLM
+    # PaddleOCR returns [None] (not None) when no text is detected on a page,
+    # so we must check page[0] — the actual block list — not page itself.
     ocr_texts = []
     for page in result:
+        if not page or page[0] is None:
+            continue
         for block in page[0]:
             ocr_texts.append(block[1][0])
     ocr_text = "\n".join(ocr_texts)
