@@ -12,6 +12,7 @@ BUSINESS_CARD_FIELDS = (
 
 BUSINESS_CARD_IDENTITY_FIELDS = ("name", "company")
 BUSINESS_CARD_CONTACT_FIELDS = ("email", "phone", "web")
+BUSINESS_CARD_CONFIDENCE_FIELDS = BUSINESS_CARD_FIELDS
 
 BUSINESS_CARD_SCHEMA = {
     "document_type": "business_card",
@@ -28,5 +29,6 @@ BUSINESS_CARD_SCHEMA = {
         },
     ],
     "important_fields": list(BUSINESS_CARD_FIELDS),
+    "confidence_fields": list(BUSINESS_CARD_CONFIDENCE_FIELDS),
     "optional_fields": [],
 }

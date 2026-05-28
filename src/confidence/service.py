@@ -1,14 +1,16 @@
 from __future__ import annotations
 
+import asyncio
+import logging
+from contextlib import suppress
 from time import perf_counter
 from typing import Any
 
 from src.common.enums import DocType, ProcessingStage, StageStatus
 from src.confidence.config import confidence_settings
 from src.confidence.constants import (
-    BUSINESS_CARD_CONTACT_FIELDS,
+    BUSINESS_CARD_CONFIDENCE_FIELDS,
     BUSINESS_CARD_FIELDS,
-    BUSINESS_CARD_IDENTITY_FIELDS,
     BUSINESS_CARD_SCHEMA,
 )
 from src.confidence.exceptions import (
@@ -31,6 +33,8 @@ from src.confidence.schemas import (
 from src.intake.models import UploadedImage
 from src.mapping.models import MappedDocument
 from src.ocr.models import AiVisionResult, OcrResult
+
+logger = logging.getLogger(__name__)
 
 
 def classify_field(score: float) -> ConfidenceClass:
@@ -80,12 +84,6 @@ async def score_document(processing_id: str) -> ConfidenceReport:
         ]
         requires_manual_review = any(field.requires_manual_review for field in field_scores)
 
-        existing = await ConfidenceReport.find_one(
-            ConfidenceReport.processing_id == processing_id
-        )
-        if existing is not None:
-            await existing.delete()
-
         report = ConfidenceReport(
             processing_id=processing_id,
             mapped_document_id=mapped_document.id,
@@ -103,8 +101,9 @@ async def score_document(processing_id: str) -> ConfidenceReport:
             failed_fields=failed_fields,
             metadata={"business_card_schema": BUSINESS_CARD_SCHEMA},
         )
-        await report.insert()
+        await _persist_confidence_report(report)
 
+        ai_model_version = await _ai_model_version(processing_id)
         await log_stage_history(
             processing_id=processing_id,
             stage=ProcessingStage.CONFIDENCE_SCORING,
@@ -113,13 +112,18 @@ async def score_document(processing_id: str) -> ConfidenceReport:
                 "overall_score": overall_score,
                 "document_type": mapped_document.doc_type.value,
                 "requires_manual_review": requires_manual_review,
+                "failed_fields": failed_fields,
+                "validation_errors": _validation_errors(field_scores),
             },
+            ocr_version=ocr_result.ocr_version,
+            ai_model_version=ai_model_version,
             duration_ms=int((perf_counter() - started) * 1000),
         )
         return report
     except DocumentNotFound:
         raise
     except Exception as exc:
+        await _log_scoring_failure(processing_id, exc, started)
         raise ScoringFailed(str(exc)) from exc
 
 
@@ -150,22 +154,15 @@ def calculate_overall_score(
     document_type: DocType | str,
     field_scores: list[FieldConfidence],
 ) -> float:
-    """Calculate Business Card overall confidence from required groups."""
+    """Calculate Business Card overall confidence from configured confidence fields."""
     doc_type = _coerce_doc_type(document_type)
     _ensure_business_card(doc_type)
     if not field_scores:
         return 0.0
 
     by_name = {field.field_name: field.score for field in field_scores}
-    identity_score = max(
-        (by_name.get(field, 0.0) for field in BUSINESS_CARD_IDENTITY_FIELDS),
-        default=0.0,
-    )
-    contact_score = max(
-        (by_name.get(field, 0.0) for field in BUSINESS_CARD_CONTACT_FIELDS),
-        default=0.0,
-    )
-    return _round_score((identity_score + contact_score) / 2)
+    scores = [by_name.get(field, 0.0) for field in BUSINESS_CARD_CONFIDENCE_FIELDS]
+    return _round_score(sum(scores) / len(scores))
 
 
 async def log_stage_history(
@@ -173,6 +170,8 @@ async def log_stage_history(
     stage: ProcessingStage,
     status: StageStatus,
     details: dict[str, Any] | None = None,
+    ocr_version: str | None = None,
+    ai_model_version: str | None = None,
     duration_ms: int | None = None,
 ) -> ProcessingHistory:
     """Append one processing-history row for audit and troubleshooting."""
@@ -181,6 +180,8 @@ async def log_stage_history(
         stage=stage,
         status=status,
         details=details or {},
+        ocr_version=ocr_version,
+        ai_model_version=ai_model_version,
         duration_ms=duration_ms,
     )
     await history.insert()
@@ -235,6 +236,8 @@ async def get_full_document_state(processing_id: str) -> DocumentFullStateRespon
                 "stage": item.stage.value,
                 "status": item.status.value,
                 "details": item.details,
+                "ocr_version": item.ocr_version,
+                "ai_model_version": item.ai_model_version,
                 "duration_ms": item.duration_ms,
                 "created_at": item.created_at.isoformat(),
             }
@@ -262,11 +265,17 @@ def _score_one_field(
     requires_manual_review = not auto_approved
 
     note = None
-    if classification == ConfidenceClass.LOW:
+    if classification == ConfidenceClass.LOW and _is_inconsistent_or_incomplete(
+        value,
+        validation_errors,
+    ):
+        classification = ConfidenceClass.FAILED
+        note = "Confidence inconsistency warning: inconsistent or incomplete value"
+    elif classification == ConfidenceClass.LOW:
         note = "Below high-confidence threshold"
-    if classification == ConfidenceClass.FAILED:
+    elif classification == ConfidenceClass.FAILED:
         note = "Manual review required"
-    if not validation_passed:
+    if not validation_passed and note is None:
         note = "Validation failed; automatic approval blocked"
 
     return FieldConfidence(
@@ -346,13 +355,16 @@ def _validation_for_field(field_name: str, validation_results: Any) -> tuple[str
         for item in validation_results
         if _get_attr_or_key(item, "field_name") == field_name
     ]
-    failed_messages = [
-        _get_attr_or_key(item, "message")
+    failed_results = [
+        item
         for item in field_results
         if _get_attr_or_key(item, "passed") is False
     ]
-    errors = [message for message in failed_messages if message]
-    return ("failed", errors) if errors else ("passed", [])
+    errors = [
+        _validation_error_message(item)
+        for item in failed_results
+    ]
+    return ("failed", errors) if failed_results else ("passed", [])
 
 
 def _confidence_response(report: ConfidenceReport | None) -> ConfidenceResponse | None:
@@ -403,6 +415,110 @@ def _get_attr_or_key(item: Any, key: str) -> Any:
     if isinstance(item, dict):
         return item.get(key)
     return getattr(item, key, None)
+
+
+def _validation_error_message(item: Any) -> str:
+    message = _get_attr_or_key(item, "message")
+    if message:
+        return str(message)
+    rule = _get_attr_or_key(item, "rule")
+    if rule:
+        return f"Validation failed: {rule}"
+    return "Validation failed"
+
+
+def _is_inconsistent_or_incomplete(value: Any, validation_errors: list[str]) -> bool:
+    return value in (None, "", []) or bool(validation_errors)
+
+
+def _validation_errors(field_scores: list[FieldConfidence]) -> dict[str, list[str]]:
+    return {
+        field.field_name: field.validation_errors
+        for field in field_scores
+        if field.validation_errors
+    }
+
+
+async def _ai_model_version(processing_id: str) -> str | None:
+    vision_result = await AiVisionResult.find_one(
+        AiVisionResult.processing_id == processing_id
+    )
+    return vision_result.model_version if vision_result else None
+
+
+async def _log_scoring_failure(
+    processing_id: str,
+    exc: Exception,
+    started: float,
+) -> None:
+    logger.error(
+        "Confidence scoring failed for processing_id=%s: %s",
+        processing_id,
+        exc,
+        exc_info=True,
+    )
+    with suppress(Exception):
+        await log_stage_history(
+            processing_id=processing_id,
+            stage=ProcessingStage.CONFIDENCE_SCORING,
+            status=StageStatus.FAILED,
+            details={
+                "error": str(exc),
+                "message": "Confidence validation failed",
+            },
+            duration_ms=int((perf_counter() - started) * 1000),
+        )
+
+
+async def _persist_confidence_report(
+    report: ConfidenceReport,
+    max_retries: int = 3,
+) -> None:
+    last_error: Exception | None = None
+    for attempt in range(1, max_retries + 1):
+        try:
+            existing = await ConfidenceReport.find_one(
+                ConfidenceReport.processing_id == report.processing_id
+            )
+            if existing is None:
+                report.metadata["persistence_attempt"] = attempt
+                await report.insert()
+            else:
+                _copy_report_fields(existing, report)
+                existing.metadata["persistence_attempt"] = attempt
+                await existing.save()
+            return
+        except Exception as exc:
+            last_error = exc
+            logger.error(
+                "Confidence report persistence failed for processing_id=%s "
+                "attempt=%d/%d: %s",
+                report.processing_id,
+                attempt,
+                max_retries,
+                exc,
+                exc_info=True,
+            )
+            if attempt < max_retries:
+                await asyncio.sleep(0.05 * attempt)
+
+    if last_error is not None:
+        raise last_error
+
+
+def _copy_report_fields(target: ConfidenceReport, source: ConfidenceReport) -> None:
+    target.mapped_document_id = source.mapped_document_id
+    target.document_type = source.document_type
+    target.raw_ocr_output = source.raw_ocr_output
+    target.normalized_fields = source.normalized_fields
+    target.validation_results = source.validation_results
+    target.field_scores = source.field_scores
+    target.overall_score = source.overall_score
+    target.classification = source.classification
+    target.flags = source.flags
+    target.failed_fields = source.failed_fields
+    target.metadata = source.metadata
+    target.scored_at = source.scored_at
 
 
 def _normalize_for_match(value: str) -> str:
