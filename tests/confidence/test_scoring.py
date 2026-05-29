@@ -128,6 +128,59 @@ def test_business_card_overall_uses_required_groups():
     assert classify_overall(overall_score) == OverallClassification.PARTIAL_SUCCESS
 
 
+def test_compact_text_matching_scores_normalized_phone_and_url():
+    field_scores = build_field_scores(
+        document_type=DocType.BUSINESS_CARD,
+        normalized_fields={
+            "name": "NGUYEN THI NGOC DIEP",
+            "position": "Director",
+            "company": "SWINBURNE VIETNAM",
+            "phone": "+84903334966",
+            "email": "diepntn12@fe.edu.vn",
+            "web": "https://ICST.ORG",
+        },
+        validation_results={},
+        ocr_blocks=[
+            {"id": "block_001", "text": "NGUYEN THI NGOC DIEP", "confidence": 0.95},
+            {"id": "block_002", "text": "Director", "confidence": 0.95},
+            {"id": "block_003", "text": "SWINBURNE VIETNAM", "confidence": 0.95},
+            {"id": "block_004", "text": "+84)903334966", "confidence": 0.95},
+            {"id": "block_005", "text": "DiepNTN12@fe.edu.vn", "confidence": 0.95},
+            {"id": "block_006", "text": "ICST.ORG", "confidence": 0.95},
+        ],
+    )
+    by_name = {field.field_name: field for field in field_scores}
+
+    assert by_name["phone"].score == 0.95
+    assert by_name["web"].score == 0.95
+
+
+def test_international_phone_scores_after_normalization():
+    field_scores = build_field_scores(
+        document_type=DocType.BUSINESS_CARD,
+        normalized_fields={
+            "name": "Gabriella Magyar",
+            "position": "Conference Coordinator",
+            "company": "ICST",
+            "phone": "+3293299425",
+            "email": "gabriella.magyar@icst.org",
+            "web": None,
+        },
+        validation_results={},
+        ocr_blocks=[
+            {"id": "block_001", "text": "Gabriella Magyar", "confidence": 0.95},
+            {"id": "block_002", "text": "Conference Coordinator", "confidence": 0.95},
+            {"id": "block_003", "text": "ICST", "confidence": 0.95},
+            {"id": "block_004", "text": "phone:+32 9 329 94 25", "confidence": 0.95},
+            {"id": "block_005", "text": "gabriella.magyar@icst.org", "confidence": 0.95},
+        ],
+    )
+    by_name = {field.field_name: field for field in field_scores}
+
+    assert by_name["phone"].score == 0.95
+    assert by_name["phone"].classification == ConfidenceClass.HIGH
+
+
 def test_validation_failure_blocks_auto_approval():
     field_scores = {
         field.field_name: field

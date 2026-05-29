@@ -24,6 +24,8 @@ def test_validate_email_format(value, expected):
     ("+84912345678", True),
     ("0912345678", True),
     ("+15550199", True),
+    ("+3293299425", True),
+    ("+61298765432", True),
     ("123", False),       # too short
     ("12345678901234567", False),  # too long
     ("phone123", False),  # letters

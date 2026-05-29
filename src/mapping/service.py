@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from src.common.enums import DocType
 from src.mapping.models import MappedDocument
 
@@ -43,6 +45,7 @@ async def map_document_fields(
     validation_results, missing = validators.validate_fields(doc_type, normalized)
 
     from beanie import PydanticObjectId
+
     doc = MappedDocument(
         processing_id=processing_id,
         doc_type=doc_type,
@@ -57,6 +60,29 @@ async def map_document_fields(
         mapping_status="mapped" if not missing else "partial",
         mapper_version=mapping_constants.MAPPER_VERSION,
     )
+
+    doc_data = {
+        "processing_id": processing_id,
+        "doc_type": doc_type,
+        "user_id": PydanticObjectId(user_id),
+        "extracted_fields": extracted,
+        "normalized_fields": normalized,
+        "validation_results": validation_results,
+        "missing_required_fields": missing,
+        "mapping_status": "mapped" if not missing else "partial",
+        "mapper_version": mapping_constants.MAPPER_VERSION,
+        "mapped_at": datetime.utcnow(),
+    }
+
+    existing = await MappedDocument.find_one(MappedDocument.processing_id == processing_id)
+    if existing:
+        for field_name, value in doc_data.items():
+            setattr(existing, field_name, value)
+        await existing.save()
+        return existing
+
+    doc = MappedDocument(**doc_data)
+
     await doc.insert()
     return doc
 

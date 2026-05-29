@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 from contextlib import suppress
 from time import perf_counter
 from typing import Any
@@ -331,10 +332,21 @@ def _blocks_by_text(
     ]
     if exact:
         return exact
-    return [
+    contains = [
         block
         for block in ocr_blocks
         if normalized_value and normalized_value in _normalize_for_match(str(block.get("text", "")))
+    ]
+    if contains:
+        return contains
+
+    compact_value = _compact_for_match(value)
+    if not compact_value:
+        return []
+    return [
+        block
+        for block in ocr_blocks
+        if compact_value in _compact_for_match(str(block.get("text", "")))
     ]
 
 
@@ -523,6 +535,11 @@ def _copy_report_fields(target: ConfidenceReport, source: ConfidenceReport) -> N
 
 def _normalize_for_match(value: str) -> str:
     return " ".join(value.lower().split())
+
+
+def _compact_for_match(value: str) -> str:
+    without_protocol = re.sub(r"^https?://", "", value.lower())
+    return re.sub(r"[^a-z0-9]", "", without_protocol)
 
 
 def _round_score(score: float) -> float:
