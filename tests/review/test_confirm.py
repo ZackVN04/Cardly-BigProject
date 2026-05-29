@@ -78,6 +78,7 @@ def _valid_structured_data() -> dict[str, Any]:
         "web": "https://example.com",
         "position": "Backend Engineer",
         "company": "Cardly",
+        "address": None,
         "industry": None,
         "summary": None,
         "keywords": [],

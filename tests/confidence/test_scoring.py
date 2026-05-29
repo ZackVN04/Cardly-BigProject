@@ -111,6 +111,7 @@ def test_business_card_only_scores_six_fixed_fields():
         "name",
         "position",
         "company",
+        "address",
         "phone",
         "email",
         "web",
@@ -122,7 +123,8 @@ def test_business_card_overall_uses_required_groups():
 
     overall_score = calculate_overall_score(DocType.BUSINESS_CARD, field_scores)
 
-    assert overall_score == 0.8983
+    # address=None → score=0.0; average of (0.88+0.72+0.92+0.0+0.95+0.98+0.94)/7 = 0.77
+    assert overall_score == 0.77
     assert classify_overall(overall_score) == OverallClassification.PARTIAL_SUCCESS
 
 

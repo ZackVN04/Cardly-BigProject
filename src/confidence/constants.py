@@ -5,6 +5,7 @@ BUSINESS_CARD_FIELDS = (
     "name",
     "position",
     "company",
+    "address",
     "phone",
     "email",
     "web",
@@ -30,5 +31,5 @@ BUSINESS_CARD_SCHEMA = {
     ],
     "important_fields": list(BUSINESS_CARD_FIELDS),
     "confidence_fields": list(BUSINESS_CARD_CONFIDENCE_FIELDS),
-    "optional_fields": [],
+    "optional_fields": ["address", "position", "company"],
 }

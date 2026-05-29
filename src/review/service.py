@@ -72,6 +72,7 @@ REVIEWABLE_FIELDS = (
     "web",
     "position",
     "company",
+    "address",
     "industry",
     "summary",
     "keywords",

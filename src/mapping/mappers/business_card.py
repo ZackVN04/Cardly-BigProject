@@ -69,7 +69,7 @@ class BusinessCardMapper(BaseMapper):
     can look up the OCR block confidence for every mapped field.
     """
 
-    FIELD_LABELS = ("name", "position", "company", "phone", "email", "web")
+    FIELD_LABELS = ("name", "position", "company", "address", "phone", "email", "web")
 
     # Vision region label aliases to try when the primary label is missing
     _ALIASES: dict[str, list[str]] = {
@@ -105,6 +105,9 @@ class BusinessCardMapper(BaseMapper):
                         result[label] = text
                         self._record_ref(label, block)
                 break  # found a matching region — stop trying aliases
+
+        # address: spatial match like identity fields but allow longer text
+        self._extract_address(result)
 
         return result
 
@@ -157,6 +160,30 @@ class BusinessCardMapper(BaseMapper):
                 result["web"] = cleaned
                 self._record_ref("web", block)
                 return
+
+    def _extract_address(self, result: dict[str, Any]) -> None:
+        """Vision-guided spatial match for address.
+
+        Address lines may contain digits and commas, so the contact guard is
+        intentionally relaxed here — we only skip blocks that look like a
+        pure phone number or a URL/email.
+        """
+        _ADDR_SKIP_RE = re.compile(
+            r"@|https?://|www\."
+            r"|^\+?\d[\d\s\-().]{6,}$",  # pure phone number line
+            re.IGNORECASE,
+        )
+        for lbl in ["address"] + self._ALIASES.get("address", []):
+            region = self._find_region(lbl)
+            if not region:
+                continue
+            block = self._find_block_near(region["bbox"], threshold=200.0)
+            if block:
+                text = _PREFIX_RE.sub("", block.get("text", "")).strip()
+                if text and not _ADDR_SKIP_RE.search(text):
+                    result["address"] = text
+                    self._record_ref("address", block)
+            break
 
     # ------------------------------------------------------------------
     # Utility

@@ -175,6 +175,7 @@ async def run_ocr_pipeline(processing_id: str, user: User) -> dict:
             "web":      ["website"],
             "position": ["position"],
             "company":  ["company"],
+            "address":  ["address"],
         }
 
         def _best_block_bbox(value: str | None) -> list[float]:
