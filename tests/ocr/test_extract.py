@@ -12,7 +12,7 @@ async def run():
         img_bytes1 = f1.read()
         img_bytes2 = f2.read()
 
-    scan, extracted = await pipline_ocr_to_llm(
+    scan, extracted, ocr_blocks = await pipline_ocr_to_llm(
         images_data=[img_bytes1, img_bytes2],
         owner_id="6a16591fde6cb0dd33f1832f",
         processing_id="PRC-20260527-9SODVT",

@@ -112,8 +112,9 @@ async def run_ocr_pipeline(processing_id: str, user: User) -> dict:
     # Step 3: OCR + LLM extraction — list[bytes] → dict
     cardscan: BusinessCardScan
     result: dict
+    ocr_blocks: list[dict]
 
-    cardscan, result = await pipline_ocr_to_llm(
+    cardscan, result, ocr_blocks = await pipline_ocr_to_llm(
         images_raw,
         str(user.id),
         processing_id
@@ -138,37 +139,83 @@ async def run_ocr_pipeline(processing_id: str, user: User) -> dict:
         if ocr_res:
             await ocr_res.delete()
         
+        # Build OcrResult blocks with REAL bounding boxes from PaddleOCR
+        blocks = [
+            OcrBlock(
+                id=f"b_{i}",
+                text=b["text"],
+                bbox=b["bbox"],
+                confidence=b["confidence"],
+            )
+            for i, b in enumerate(ocr_blocks)
+        ]
         ocr_res = OcrResult(
             processing_id=processing_id,
             preprocessed_image_id=prep_id,
-            ocr_engine="gemini",
+            ocr_engine="paddleocr",
             raw_text=cardscan.raw_text,
-            blocks=[
-                OcrBlock(id=f"b_{i}", text=line, bbox=[0.0, 0.0, 10.0, 10.0], confidence=0.95)
-                for i, line in enumerate(cardscan.raw_text.split("\n"))
-                if line.strip()
-            ] if cardscan.raw_text else [],
+            blocks=blocks,
             overall_confidence=0.95,
-            ocr_version="1.0"
+            ocr_version="1.0",
         )
         await ocr_res.insert()
+
+        # ----------------------------------------------------------------
+        # Align VisionRegion bboxes to actual OCR blocks.
+        # For each semantic label we look up the LLM-extracted value and
+        # find the OCR block whose text best contains that value.
+        # The block's real bbox is then used as the region bbox so that
+        # P5 mapping (_find_block_near) resolves the correct block.
+        # ----------------------------------------------------------------
+        # Map from Vision label → LLM result key(s)
+        _label_to_result_keys: dict[str, list[str]] = {
+            "name":     ["name"],
+            "phone":    ["phones"],      # list — take first element
+            "email":    ["email"],
+            "web":      ["website"],
+            "position": ["position"],
+            "company":  ["company"],
+        }
+
+        def _best_block_bbox(value: str | None) -> list[float]:
+            """Return bbox of the OCR block whose text best contains *value*."""
+            if not value or not ocr_blocks:
+                return [0.0, 0.0, 10.0, 10.0]
+            needle = value.strip().lower()
+            # 1st pass: block text contains the needle
+            for blk in ocr_blocks:
+                if needle in blk["text"].lower():
+                    return blk["bbox"]
+            # 2nd pass: needle contains the block text (partial match)
+            for blk in ocr_blocks:
+                if blk["text"].lower() in needle:
+                    return blk["bbox"]
+            return [0.0, 0.0, 10.0, 10.0]
+
+        detected_regions: list[VisionRegion] = []
+        for field_label, result_keys in _label_to_result_keys.items():
+            raw_val = result.get(result_keys[0])
+            # phones field is a list — use first entry if present
+            if isinstance(raw_val, list):
+                raw_val = raw_val[0] if raw_val else None
+            bbox = _best_block_bbox(raw_val)
+            detected_regions.append(
+                VisionRegion(label=field_label, bbox=bbox, confidence=0.95)
+            )
 
         # Save AiVisionResult (delete existing to overwrite schema)
         vision_res = await AiVisionResult.find_one(AiVisionResult.processing_id == processing_id)
         if vision_res:
             await vision_res.delete()
-            
+
         vision_res = AiVisionResult(
             processing_id=processing_id,
             preprocessed_image_id=prep_id,
             doc_type=DocType.BUSINESS_CARD,
             doc_type_confidence=0.99,
-            detected_regions=[
-                VisionRegion(label=field, bbox=[0, 0, 10, 10], confidence=0.95)
-                for field in ["name", "phone", "email", "web", "position", "company"]
-            ],
+            detected_regions=detected_regions,
             model_name="gemini",
-            model_version="1.0"
+            model_version="1.0",
         )
         await vision_res.insert()
 
