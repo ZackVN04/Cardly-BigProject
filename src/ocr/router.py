@@ -18,29 +18,34 @@ from fastapi.params import Depends
 from src.auth.dependencies import get_current_user
 from src.auth.models import User
 from src.pipeline.ocr_pipeline import run_ocr_pipeline
-from .schemas import BusinessCard
+from src.ocr.response_schema import ExtractionResponse
 
 router = APIRouter()
 
 
 @router.post(
     "/pipeline/{processing_id}",
-    response_model=BusinessCard,
+    response_model=ExtractionResponse,
     status_code=status.HTTP_200_OK,
     summary="Run the full preprocess → OCR pipeline on an already-uploaded document",
 )
-async def ocr_pipeline(processing_id: str, user: User = Depends(get_current_user))-> BusinessCard:
+async def ocr_pipeline(
+    processing_id: str,
+    user: User = Depends(get_current_user),
+) -> ExtractionResponse:
     """Download the image(s) for *processing_id* from GCS, preprocess them,
-    run OCR extraction, and return the structured result.
+    run OCR extraction, and return the normalized structured result.
 
     - **processing_id**: the correlation key returned by the upload endpoint
       (`POST /api/v1/documents`).  One or two images may be associated with
       this ID (front and back of a card).
 
-    Returns a ``BusinessCard`` object with the extracted information.
+    Returns an ``ExtractionResponse`` with all contact fields, confidence
+    values, and extraction status — missing values are null/[] rather than
+    being omitted.
 
     Raises **404** if no documents are found for the given ``processing_id``.
     Raises **502** if a GCS download fails.
     """
-    result = await run_ocr_pipeline(processing_id, user)
-    return BusinessCard(**result)
+    _scan, normalized = await run_ocr_pipeline(processing_id, user)
+    return normalized

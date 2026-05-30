@@ -22,12 +22,14 @@ or ``src/intake``.
 from __future__ import annotations
 
 import logging
+import os
 
 from fastapi import HTTPException, status
 from google.cloud import storage
 
 from src.auth.models import User
 from src.ocr.models import BusinessCardScan
+from src.ocr.response_schema import ExtractionResponse
 from src.intake import config as intake_cfg
 from src.config import settings as global_cfg
 from src.preprocess.adapter import preprocess_image_bytes
@@ -87,7 +89,7 @@ async def _download_images_from_gcs(processing_id: str) -> list[bytes]:
     return images_raw
 
 
-async def run_ocr_pipeline(processing_id: str, user: User) -> dict:
+async def run_ocr_pipeline(processing_id: str, user: User) -> tuple[BusinessCardScan, ExtractionResponse]:
     """Run the full preprocess → OCR pipeline for an already-uploaded document.
 
     Parameters
@@ -98,8 +100,8 @@ async def run_ocr_pipeline(processing_id: str, user: User) -> dict:
 
     Returns
     -------
-    dict
-        Structured OCR extraction result matching the ``BusinessCard`` schema.
+    tuple[BusinessCardScan, ExtractionResponse]
+        The persisted scan record and the fully-normalized extraction result.
     """
     logger.info("OCR pipeline started for processing_id='%s'", processing_id)
 
@@ -109,15 +111,72 @@ async def run_ocr_pipeline(processing_id: str, user: User) -> dict:
     # Step 2: preprocess — list[bytes] → list[bytes] (processed)
     images_data: list[bytes] = await preprocess_image_bytes(images_raw)
 
-    # Step 3: OCR + LLM extraction — list[bytes] → dict
-    cardscan: BusinessCardScan
-    result: dict
+    # ------------------------------------------------------------------
+    # DEBUG: dump raw vs preprocessed images for visual inspection.
+    # Remove this block once the preprocessing issue is resolved.
+    # ------------------------------------------------------------------
+    # _debug_dump_images(processing_id, images_raw, images_data)
+    # ------------------------------------------------------------------
 
-    cardscan, result = await pipline_ocr_to_llm(
+    # Step 3: OCR + LLM extraction — list[bytes] → ExtractionResponse
+    cardscan: BusinessCardScan
+    normalized: ExtractionResponse
+
+    cardscan, normalized = await pipline_ocr_to_llm(
         images_raw,
         str(user.id),
         processing_id
     )
 
     logger.info("OCR pipeline completed for processing_id='%s'", processing_id)
-    return result
+    return cardscan, normalized
+
+
+
+# ---------------------------------------------------------------------------
+# DEBUG helper — remove once preprocessing issue is diagnosed
+# ---------------------------------------------------------------------------
+
+_DEBUG_DIR = "storage/debug_ocr"
+
+
+def _debug_dump_images(
+    processing_id: str,
+    images_raw: list[bytes],
+    images_data: list[bytes],
+) -> None:
+    """Save raw and preprocessed image bytes to *_DEBUG_DIR* for visual inspection.
+
+    Each call writes two files per image index::
+
+        storage/debug_ocr/<processing_id>_<idx>_raw.<ext>
+        storage/debug_ocr/<processing_id>_<idx>_processed.<ext>
+
+    The extension is inferred from the leading magic bytes so the files open
+    correctly in any image viewer.
+    """
+    os.makedirs(_DEBUG_DIR, exist_ok=True)
+
+    def _ext(data: bytes) -> str:
+        """Guess file extension from magic bytes."""
+        if data[:8] == b"\x89PNG\r\n\x1a\n":
+            return "png"
+        if data[:2] == b"\xff\xd8":
+            return "jpg"
+        if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+            return "webp"
+        return "bin"
+
+    for idx, (raw, processed) in enumerate(zip(images_raw, images_data)):
+        raw_path = os.path.join(_DEBUG_DIR, f"{processing_id}_{idx}_raw.{_ext(raw)}")
+        proc_path = os.path.join(_DEBUG_DIR, f"{processing_id}_{idx}_processed.{_ext(processed)}")
+
+        with open(raw_path, "wb") as f:
+            f.write(raw)
+        with open(proc_path, "wb") as f:
+            f.write(processed)
+
+        logger.info(
+            "[DEBUG] Dumped image[%d] → raw=%s (%d bytes)  processed=%s (%d bytes)",
+            idx, raw_path, len(raw), proc_path, len(processed),
+        )

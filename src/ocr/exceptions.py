@@ -5,7 +5,15 @@ class OcrFailed(AppException):
     status_code = 500
     code = "PIPELINE_FAILED"
     message = "OCR extraction failed"
+class CardNotDetected(AppException):
+    status_code = 500
+    code = "CARD_NOT_DETECTED"
+    message = "Card not detected"
 
+class ExtractionTimeout(AppException):
+    status_code = 500
+    code = "EXTRACTION_TIMEOUT"
+    message = "Extraction timeout"
 
 class VisionApiError(AppException):
     status_code = 500

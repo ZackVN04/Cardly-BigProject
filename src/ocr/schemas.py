@@ -9,3 +9,7 @@ class BusinessCard(BaseModel):
     position: str = Field(description="The position of the person")
     address: str = Field(description="The address of the person")
     website: str = Field(description="The website of the person")
+    social_profiles: list[str] = Field(
+        default_factory=list,
+        description="Social profile URLs found on the card (LinkedIn, Facebook, Zalo, etc.)",
+    )

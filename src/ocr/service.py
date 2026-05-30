@@ -2,34 +2,45 @@
 import io
 import os
 import json
+from typing import Any
 
 import cv2
 import numpy as np
 from google import genai
 from PIL import Image
 from google.genai.types import Tool, GenerateContentConfig
+
+from .exceptions import CardNotDetected
 from .schemas import BusinessCard
 from .clients.paddle_client import get_ocr_engine
 from .clients.gemini_client import get_gemini_client
 from .models import BusinessCardScan
 from .constants import BusinessCardScanStatus
+from .normalizer import normalize_gemini_response
+from .response_schema import ExtractionResponse
 
 async def save_ocr_raw_text(
     owner_id: str,
     processing_id: str,
+    extracted_data: [dict[str, Any]],
     raw_text: str,
 ) -> BusinessCardScan:
     scan = BusinessCardScan(
         owner_id=owner_id,
         processing_id=processing_id,
         raw_text=raw_text,
-        status=BusinessCardScanStatus.PROCESSING,
+        extracted_data= extracted_data,
+        status=BusinessCardScanStatus.COMPLETED,
     )
     await scan.insert()
     return scan
 
 
-async def pipline_ocr_to_llm(images_data: list[bytes], owner_id: str, processing_id: str) -> tuple[BusinessCardScan, dict]:
+async def pipline_ocr_to_llm(
+    images_data: list[bytes],
+    owner_id: str,
+    processing_id: str,
+) -> tuple[BusinessCardScan, ExtractionResponse]:
     # Step 1: Run full OCR on the image
     ocr_engine = get_ocr_engine()
     result = []
@@ -42,19 +53,27 @@ async def pipline_ocr_to_llm(images_data: list[bytes], owner_id: str, processing
     print("OCR Result: ", json.dumps(result, indent=4))
 
     # Chuẩn bị dữ liệu đầu vào cho LLM
-    ocr_texts = []
+    # Also build a flat list of OCR blocks for confidence resolution
+    ocr_texts: list[str] = []
+    ocr_blocks: list[dict[str, Any]] = []
     for page in result:
         if not page or page[0] is None:
             continue
         for block in page[0]:
-            ocr_texts.append(block[1][0])
+            text: str = block[1][0]
+            confidence: float = float(block[1][1])
+            ocr_texts.append(text)
+            ocr_blocks.append({"text": text, "confidence": confidence})
+
     ocr_text = "\n".join(ocr_texts)
 
     if not ocr_text.strip():
-        raise RuntimeError("OCR extracted no text from the provided images")
+        raise CardNotDetected
 
     try:
-        scan = await save_ocr_raw_text(owner_id, processing_id, ocr_text)
+        # BusinessCardScan.extracted_data requires a dict; wrap the PaddleOCR
+        # list under a "pages" key so the raw output is still fully preserved.
+        scan = await save_ocr_raw_text(owner_id, processing_id, {"pages": result}, ocr_text)
     except Exception as e:
         raise RuntimeError(f"Failed to save OCR result to DB: {e}") from e
 
@@ -85,6 +104,11 @@ async def pipline_ocr_to_llm(images_data: list[bytes], owner_id: str, processing
         response_text = response_text[3:-3]
 
     try:
-        return scan, json.loads(response_text)
+        gemini_raw: dict[str, Any] = json.loads(response_text)
     except json.JSONDecodeError as e:
         raise RuntimeError(f"LLM returned invalid JSON: {e}") from e
+
+    # Step 3: Normalize the Gemini response into a stable, structured schema
+    normalized = normalize_gemini_response(gemini_raw, ocr_blocks)
+
+    return scan, normalized
