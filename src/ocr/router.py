@@ -6,22 +6,19 @@ Responsibilities:
      which downloads images from GCS and runs the preprocess → OCR pipeline.
   3. Return a structured HTTP response.
 
-No business logic lives here.  Domain errors bubble up from the service
-layers and are caught either by the route handler below or by the global
-AppException handler registered in main.py.
+No business logic lives here.  All domain errors bubble up from the service
+layers and are caught by the global AppException handler registered in main.py.
 
-Authentication: JWT token required via get_current_user dependency.
+Authentication: this endpoint is public — no token required.
 """
 
 from fastapi import APIRouter, status
 from fastapi.params import Depends
-from fastapi.responses import JSONResponse
 
 from src.auth.dependencies import get_current_user
 from src.auth.models import User
-from src.ocr.exceptions import ExtractionTimeout
-from src.ocr.response_schema import ExtractionError, ExtractionResponse
 from src.pipeline.ocr_pipeline import run_ocr_pipeline
+from src.ocr.response_schema import ExtractionResponse
 
 router = APIRouter()
 
@@ -35,7 +32,7 @@ router = APIRouter()
 async def ocr_pipeline(
     processing_id: str,
     user: User = Depends(get_current_user),
-) -> ExtractionResponse | JSONResponse:
+) -> ExtractionResponse:
     """Download the image(s) for *processing_id* from GCS, preprocess them,
     run OCR extraction, and return the normalized structured result.
 
@@ -44,22 +41,11 @@ async def ocr_pipeline(
       this ID (front and back of a card).
 
     Returns an ``ExtractionResponse`` with all contact fields, confidence
-    values, and extraction status.  Missing values are null/[] rather than
+    values, and extraction status — missing values are null/[] rather than
     being omitted.
 
     Raises **404** if no documents are found for the given ``processing_id``.
     Raises **502** if a GCS download fails.
-    Raises **504** if extraction exceeds the 10-second timeout (AC-10).
     """
-    try:
-        _scan, normalized = await run_ocr_pipeline(processing_id, user)
-        return normalized
-    except ExtractionTimeout as exc:
-        # AC-9/10: return timeout status in the standard response envelope
-        return JSONResponse(
-            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
-            content=ExtractionResponse(
-                extraction_status="timeout",
-                errors=[ExtractionError(code=exc.code, message=exc.message)],
-            ).model_dump(mode="json"),
-        )
+    _scan, normalized = await run_ocr_pipeline(processing_id, user)
+    return normalized
