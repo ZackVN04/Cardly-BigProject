@@ -346,9 +346,8 @@ def fix_orientation(img: np.ndarray) -> tuple[np.ndarray, int]:
         if img is None or img.size == 0:
             raise ImageDistorted(message="fix_orientation received an empty image")
 
-        corrected, rotation_applied = detect_and_correct_orientation(img)
-        logger.info("fix_orientation complete — coarse rotation applied: %d°", rotation_applied)
-        return corrected, rotation_applied
+        logger.info("fix_orientation is disabled — returning original image.")
+        return img.copy(), 0
 
     except (ImageDistorted, PreprocessFailed):
         raise
