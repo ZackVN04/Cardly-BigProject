@@ -1,4 +1,3 @@
-
 import io
 import os
 import json
@@ -16,8 +15,6 @@ from .clients.paddle_client import get_ocr_engine
 from .clients.gemini_client import get_gemini_client
 from .models import BusinessCardScan
 from .constants import BusinessCardScanStatus
-from .normalizer import normalize_gemini_response
-from .response_schema import ExtractionResponse
 
 async def save_ocr_raw_text(
     owner_id: str,
@@ -34,7 +31,6 @@ async def save_ocr_raw_text(
     )
     await scan.insert()
     return scan
-
 
 async def pipline_ocr_to_llm(
     images_data: list[bytes],
@@ -104,11 +100,6 @@ async def pipline_ocr_to_llm(
         response_text = response_text[3:-3]
 
     try:
-        gemini_raw: dict[str, Any] = json.loads(response_text)
+        return scan, json.loads(response_text)
     except json.JSONDecodeError as e:
         raise RuntimeError(f"LLM returned invalid JSON: {e}") from e
-
-    # Step 3: Normalize the Gemini response into a stable, structured schema
-    normalized = normalize_gemini_response(gemini_raw, ocr_blocks)
-
-    return scan, normalized

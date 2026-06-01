@@ -30,6 +30,8 @@ from google.cloud import storage
 from src.auth.models import User
 from src.ocr.models import BusinessCardScan
 from src.ocr.response_schema import ExtractionResponse
+from src.mapping.normalizers import normalize_fields
+from src.common.enums import DocType
 from src.intake import config as intake_cfg
 from src.config import settings as global_cfg
 from src.preprocess.adapter import preprocess_image_bytes
@@ -118,18 +120,23 @@ async def run_ocr_pipeline(processing_id: str, user: User) -> tuple[BusinessCard
     # _debug_dump_images(processing_id, images_raw, images_data)
     # ------------------------------------------------------------------
 
-    # Step 3: OCR + LLM extraction — list[bytes] → ExtractionResponse
+    # Step 3: OCR + LLM extraction
     cardscan: BusinessCardScan
-    normalized: ExtractionResponse
-
-    cardscan, normalized = await pipline_ocr_to_llm(
-        images_raw,
+    
+    cardscan, raw_extracted_dict = await pipline_ocr_to_llm(
+        images_data,
         str(user.id),
         processing_id
     )
 
+    # Step 4: Normalize extracted fields (cleanup phone, website, etc.)
+    normalized_dict = normalize_fields(DocType.BUSINESS_CARD, raw_extracted_dict)
+    
+    # Step 5: Convert to final response schema
+    extraction_response = ExtractionResponse(**normalized_dict)
+    
     logger.info("OCR pipeline completed for processing_id='%s'", processing_id)
-    return cardscan, normalized
+    return cardscan, extraction_response
 
 
 
