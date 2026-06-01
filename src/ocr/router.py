@@ -18,7 +18,7 @@ from fastapi.params import Depends
 from src.auth.dependencies import get_current_user
 from src.auth.models import User
 from src.pipeline.ocr_pipeline import run_ocr_pipeline
-from src.ocr.response_schema import ExtractionResponse
+from .schemas import ExtractionResponse
 
 router = APIRouter()
 

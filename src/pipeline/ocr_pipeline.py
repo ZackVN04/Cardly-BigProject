@@ -29,16 +29,17 @@ from google.cloud import storage
 
 from src.auth.models import User
 from src.ocr.models import BusinessCardScan
-from src.ocr.response_schema import ExtractionResponse
-from src.mapping.normalizers import normalize_fields
-from src.common.enums import DocType
+from src.ocr.schemas import ExtractionResponse
 from src.intake import config as intake_cfg
 from src.config import settings as global_cfg
 from src.preprocess.adapter import preprocess_image_bytes
 from src.ocr.service import pipline_ocr_to_llm
+from src.ocr.constants import BusinessCardScanStatus
+from src.mapping.normalizers import normalize_fields
+from src.common.enums import DocType
+from src.confidence.service import build_field_scores, calculate_overall_score
 
 logger = logging.getLogger(__name__)
-
 
 async def _download_images_from_gcs(processing_id: str) -> list[bytes]:
     """Fetch all image blobs for *processing_id* from GCS and return their bytes.
@@ -123,29 +124,44 @@ async def run_ocr_pipeline(processing_id: str, user: User) -> tuple[BusinessCard
     # Step 3: OCR + LLM extraction
     cardscan: BusinessCardScan
     
-    cardscan, raw_extracted_dict = await pipline_ocr_to_llm(
+    cardscan, raw_extracted_dict, ocr_blocks = await pipline_ocr_to_llm(
         images_data,
         str(user.id),
         processing_id
     )
 
-    # Step 4: Normalize extracted fields (cleanup phone, website, etc.)
-    normalized_dict = normalize_fields(DocType.BUSINESS_CARD, raw_extracted_dict)
+    # Step 4: Clean up extracted data
+    cleaned_dict = normalize_fields(DocType.BUSINESS_CARD, raw_extracted_dict)
     
-    # Step 5: Convert to final response schema
-    extraction_response = ExtractionResponse(**normalized_dict)
+    # Step 5: Score the extracted data
+    field_scores = build_field_scores(
+        document_type=DocType.BUSINESS_CARD,
+        normalized_fields=cleaned_dict,
+        validation_results=[],
+        ocr_blocks=ocr_blocks
+    )
+    overall_score = calculate_overall_score(DocType.BUSINESS_CARD, field_scores)
+    
+    # Step 6: Wrap in response schema
+    extraction_response = ExtractionResponse(
+        **cleaned_dict,
+        confidence_score=overall_score,
+        field_scores=[score.model_dump() for score in field_scores]
+    )
+    
+    # Step 7: Save the result to MongoDB and update status
+    cardscan.extracted_data = extraction_response.model_dump()
+    cardscan.status = BusinessCardScanStatus.COMPLETED
+    await cardscan.save()
     
     logger.info("OCR pipeline completed for processing_id='%s'", processing_id)
     return cardscan, extraction_response
-
-
 
 # ---------------------------------------------------------------------------
 # DEBUG helper — remove once preprocessing issue is diagnosed
 # ---------------------------------------------------------------------------
 
 _DEBUG_DIR = "storage/debug_ocr"
-
 
 def _debug_dump_images(
     processing_id: str,
