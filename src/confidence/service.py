@@ -287,8 +287,12 @@ def _field_score(
     ocr_blocks: list[dict[str, Any]],
     block_refs: list[str],
 ) -> float:
-    if value in (None, ""):
+    if value in (None, "") or (isinstance(value, list) and len(value) == 0):
         return 0.0
+
+    if isinstance(value, list):
+        scores = [_field_score(item, ocr_blocks, block_refs) for item in value if item]
+        return max(scores) if scores else 0.0
 
     matching_blocks = _blocks_by_ref(ocr_blocks, block_refs)
     if not matching_blocks:
@@ -322,10 +326,23 @@ def _blocks_by_text(
     ]
     if exact:
         return exact
-    return [
+    partial_1 = [
         block
         for block in ocr_blocks
         if normalized_value and normalized_value in _normalize_for_match(str(block.get("text", "")))
+    ]
+    if partial_1:
+        return partial_1
+        
+    # Xử lý trường hợp LLM nối 2 dòng OCR lại với nhau (ví dụ: "FPT University Can Tho Campus")
+    # hoặc LLM tự sinh thêm tiền tố (ví dụ: "https://" cho website)
+    # Lúc này OCR block sẽ ngắn hơn và nằm TRONG giá trị của LLM.
+    return [
+        block
+        for block in ocr_blocks
+        if normalized_value 
+        and _normalize_for_match(str(block.get("text", ""))) in normalized_value
+        and len(_normalize_for_match(str(block.get("text", "")))) > 4
     ]
 
 

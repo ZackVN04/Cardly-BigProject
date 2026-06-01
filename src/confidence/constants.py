@@ -5,13 +5,13 @@ BUSINESS_CARD_FIELDS = (
     "name",
     "position",
     "company",
-    "phone",
+    "phones",
     "email",
-    "web",
+    "website",
 )
 
 BUSINESS_CARD_IDENTITY_FIELDS = ("name", "company")
-BUSINESS_CARD_CONTACT_FIELDS = ("email", "phone", "web")
+BUSINESS_CARD_CONTACT_FIELDS = ("email", "phones", "website")
 
 BUSINESS_CARD_SCHEMA = {
     "document_type": "business_card",
