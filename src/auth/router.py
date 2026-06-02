@@ -21,6 +21,7 @@ from src.auth.schemas import (
     MessageResponse,
     RefreshRequest,
     RegisterRequest,
+    ResendOtpRequest,
     ResetPasswordRequest,
     TokenResponse,
     UserResponse,
@@ -127,3 +128,13 @@ async def me(current_user: User = Depends(get_current_user)) -> UserResponse:
         full_name=current_user.full_name,
         is_active=current_user.is_active,
     )
+
+
+@router.post(
+    "/resend-otp",
+    response_model=MessageResponse,
+    summary="Resend verification OTP",
+)
+async def resend_otp(body: ResendOtpRequest) -> MessageResponse:
+    await service.resend_verification_otp(email=body.email)
+    return MessageResponse(message="If that email is registered and inactive, a new OTP has been sent.")
