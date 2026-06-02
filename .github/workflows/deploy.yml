@@ -52,13 +52,12 @@ jobs:
           service: ${{ env.SERVICE }}
           region: ${{ env.REGION }}
           image: asia-southeast1-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.SERVICE }}:${{ github.sha }}
-          flags: '--allow-unauthenticated'
+          flags: '--allow-unauthenticated --timeout=3600 --memory=2Gi --cpu=2 --set-cloudsql-instances=${{ secrets.CLOUDSQL_INSTANCE }}'
           # Chỉ để lại các cấu hình thông thường, các thông tin nhạy cảm được gọi gián tiếp qua secrets
           env_vars: |
             ENVIRONMENT=staging
             APP_VERSION=1.0.0
             MONGODB_URL=${{ secrets.MONGODB_URL }}
-            REDIS_URL=redis://localhost:6379/0
             CORS_ORIGINS=["*"]
             JWT_SECRET=${{ secrets.JWT_SECRET }}
             JWT_ALG=HS256
