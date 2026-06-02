@@ -57,6 +57,9 @@ async def validate_file_format(file_content: bytes, mime_type: str) -> None:
 
 
 
+from fastapi.concurrency import run_in_threadpool
+from .exceptions import DuplicateFile
+
 async def dedupe_by_hash(file_hash: str, user_id: str) -> None:
     """Raise 409 if a document with the same SHA-256 hash already exists in DB for this user."""
     # Local import to avoid circular dependency with models.py
@@ -77,10 +80,7 @@ async def dedupe_by_hash(file_hash: str, user_id: str) -> None:
 
     existing = await UploadedImage.find_one(*criteria)
     if existing is not None:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Duplicate file detected for this user (same SHA-256 hash)",
-        )
+        raise DuplicateFile()
 
 
 async def get_image_dimensions(file_content: bytes) -> tuple[int | None, int | None]:
@@ -99,50 +99,56 @@ def _get_storage_client() -> storage.Client:
     return storage.Client()
 
 
-def _generate_signed_url(storage_path: str, client: storage.Client | None = None) -> str:
+async def save_to_storage(file_content: bytes, filename: str, processing_id: str, user_id: str) -> str:
+    """Upload the file bytes to Google Cloud Storage and return a signed URL."""
+    client = await run_in_threadpool(_get_storage_client)
+    storage_path = f"{user_id}/{processing_id}/{filename}"
+    bucket = client.bucket(intake_cfg.intake_settings.GCS_BUCKET_NAME)
+    blob = bucket.blob(storage_path)
+    
+    # Run the blocking upload in a threadpool to avoid hanging the event loop
+    await run_in_threadpool(blob.upload_from_string, file_content)
+
+    return await _generate_signed_url(storage_path, client=client)
+
+
+async def _generate_signed_url(storage_path: str, client: storage.Client | None = None) -> str:
     """Generate a signed URL for a given storage path.
     Client can be provided to reuse it in loops.
     """
     if client is None:
-        client = _get_storage_client()
+        client = await run_in_threadpool(_get_storage_client)
+    
     bucket = client.bucket(intake_cfg.intake_settings.GCS_BUCKET_NAME)
     blob = bucket.blob(storage_path)
-    return blob.generate_signed_url(version="v4", expiration=timedelta(hours=1), method="GET")
+    
+    # generate_signed_url can be blocking if it needs to fetch keys
+    return await run_in_threadpool(
+        blob.generate_signed_url,
+        version="v4",
+        expiration=timedelta(hours=1),
+        method="GET"
+    )
 
 
-async def save_to_storage(file_content: bytes, filename: str, processing_id: str, user_id: str) -> str:
-    """Upload the file bytes to Google Cloud Storage and return a signed URL."""
-    client = _get_storage_client()
-    storage_path = f"{user_id}/{processing_id}/{filename}"
-    bucket = client.bucket(intake_cfg.intake_settings.GCS_BUCKET_NAME)
-    blob = bucket.blob(storage_path)
-    blob.upload_from_string(file_content)
-
-    return _generate_signed_url(storage_path, client=client)
-
-
-async def ingest_single_file(current_user_id: str,
+async def ingest_single_file(
+    current_user_id: str,
     file: UploadFile,
     processing_id: str,
+    file_content: bytes,
+    file_hash: str,
 ) -> tuple[UploadedImage, str]:
-    """Validate, persist to GCS, and insert one UploadFile into MongoDB.
+    """Persist to GCS and insert one UploadFile into MongoDB.
 
     Returns (UploadedImage document, signed GCS URL).
-    Both files in a multi-upload share the same ``processing_id`` and are
-    stored under the same ``{user_id}/{processing_id}/`` folder in GCS.
     """
     from src.intake.models import UploadedImage, ImageStatus
     filename = file.filename or "unnamed_document"
     mime_type = file.content_type or "application/octet-stream"
 
-    content = await file.read()
+    width, height = await get_image_dimensions(file_content)
 
-    file_hash = utils.sha256_of_file(content)
-    await dedupe_by_hash(file_hash, current_user_id)
-
-    width, height = await get_image_dimensions(content)
-
-    url = await save_to_storage(content, filename, processing_id, current_user_id)
+    url = await save_to_storage(file_content, filename, processing_id, current_user_id)
 
     doc = UploadedImage(
         processing_id=processing_id,
@@ -150,7 +156,7 @@ async def ingest_single_file(current_user_id: str,
         original_filename=filename,
         storage_path=f"{current_user_id}/{processing_id}/{filename}",
         mime_type=mime_type,
-        file_size=len(content),
+        file_size=len(file_content),
         file_hash_sha256=file_hash,
         width=width,
         height=height,
@@ -196,10 +202,10 @@ async def list_documents(
         return []
 
     # Generate signed URLs for each document
-    client = _get_storage_client()
+    client = await run_in_threadpool(_get_storage_client)
     for doc in docs:
         try:
-            doc.file_url = _generate_signed_url(doc.storage_path, client=client)
+            doc.file_url = await _generate_signed_url(doc.storage_path, client=client)
         except Exception:
             pass
 
@@ -246,12 +252,12 @@ async def get_image_urls(
                 raise
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
 
-    client = _get_storage_client()
+    client = await run_in_threadpool(_get_storage_client)
     urls: list[str] = []
 
     for doc in docs:
         try:
-            url = _generate_signed_url(doc.storage_path, client=client)
+            url = await _generate_signed_url(doc.storage_path, client=client)
             urls.append(url)
         except Exception:
             pass

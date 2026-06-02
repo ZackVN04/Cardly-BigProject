@@ -154,6 +154,12 @@ async def run_ocr_pipeline(processing_id: str, user: User) -> tuple[BusinessCard
     cardscan.status = BusinessCardScanStatus.COMPLETED
     await cardscan.save()
     
+    # Step 8: Update the status of the associated UploadedImage documents
+    from src.intake.models import UploadedImage, ImageStatus
+    await UploadedImage.find(
+        UploadedImage.processing_id == processing_id
+    ).update({"$set": {UploadedImage.status: ImageStatus.PROCESSED}})
+    
     logger.info("OCR pipeline completed for processing_id='%s'", processing_id)
     return cardscan, extraction_response
 
