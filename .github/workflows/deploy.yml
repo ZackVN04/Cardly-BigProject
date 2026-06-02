@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - feature/run-ci-cd
   pull_request:
     branches:
       - main
@@ -26,7 +27,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 1. Bắt tay bảo mật không mật khẩu OIDC với Google Cloud (Giữ nguyên)
+      # 1. Bắt tay bảo mật không mật khẩu OIDC với Google Cloud
       - name: Authenticate with Google Cloud via OIDC
         id: auth
         uses: google-github-actions/auth@v2
@@ -35,18 +36,18 @@ jobs:
           workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
 
-      # 2. ĐĂNG NHẬP DOCKER: Sử dụng trực tiếp công cụ gcloud thần thánh để bypass hoàn toàn lỗi cache token
+      # 2. ĐĂNG NHẬP DOCKER: Sử dụng công cụ gcloud để bypass lỗi cache token
       - name: Docker Auth
         run: |
           gcloud auth configure-docker asia-southeast1-docker.pkg.dev --quiet
 
-      # 3. Build and Push Container (Giữ nguyên các dòng build phía dưới)
+      # 3. Build and Push Container
       - name: Build and Push Container
         run: |
           docker build -f docker/Dockerfile -t asia-southeast1-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.SERVICE }}:${{ github.sha }} .
           docker push asia-southeast1-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.SERVICE }}:${{ github.sha }}
 
-      # 4. Triển khai lên Cloud Run và bốc Mật mã trực tiếp từ Secret Manager
+      # 4. Triển khai lên Cloud Run (Tách biệt env_vars và secrets chuẩn Action v2)
       - name: Deploy to Cloud Run
         uses: google-github-actions/deploy-cloudrun@v2
         with:
@@ -54,7 +55,6 @@ jobs:
           region: ${{ env.REGION }}
           image: asia-southeast1-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.SERVICE }}:${{ github.sha }}
           flags: '--allow-unauthenticated'
-          # ĐÚNG CHUẨN: Biến thông thường nằm ở env_vars, biến bảo mật nằm ở secrets (bọc chung trong env_vars)
           env_vars: |
             ENVIRONMENT=staging
             APP_VERSION=1.0.0
@@ -79,4 +79,5 @@ jobs:
             OCR_ENGINE=gemini
             HIGH_THRESHOLD=0.95
             LOW_THRESHOLD=0.70
-            GOOGLE_SERVICE_ACCOUNT_JSON=secretRef:GOOGLE_SERVICE_ACCOUNT_JSON:latest
+          secrets: |
+            GOOGLE_SERVICE_ACCOUNT_JSON=GOOGLE_SERVICE_ACCOUNT_JSON:latest
