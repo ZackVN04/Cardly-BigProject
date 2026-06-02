@@ -14,10 +14,12 @@ def validate_email_format(value: str | None) -> bool:
     return bool(re.match(email_regex, value.strip()))
 
 
-def validate_phone_format(value: str | None) -> bool:
+def validate_phone_format(value: str | list[str] | None) -> bool:
     """Validate phone format: optionally starts with +, followed by 7-15 digits."""
     if not value:
         return False
+    if isinstance(value, list):
+        return bool(value) and all(validate_phone_format(item) for item in value)
     # Keep only digits and '+' to evaluate clean phone length
     cleaned = re.sub(r"[^\d+]", "", value.strip())
     phone_regex = r"^\+?\d{7,15}$"
@@ -36,8 +38,8 @@ def validate_url_format(value: str | None) -> bool:
 RULES: dict[str, list[tuple[str, Any]]] = {
     DocType.BUSINESS_CARD: [
         ("email", [("email_format", validate_email_format)]),
-        ("phone", [("phone_format", validate_phone_format)]),
-        ("web",   [("url_format",   validate_url_format)]),
+        ("phones", [("phone_format", validate_phone_format)]),
+        ("website", [("url_format", validate_url_format)]),
     ],
 }
 

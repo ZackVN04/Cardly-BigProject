@@ -15,7 +15,7 @@ from src.intake.router import router as intake_router
 from src.confidence.router import router as confidence_router
 from src.review.router import router as review_router
 from src.ocr.router import router as ocr_router
-
+from src.enrichment.router import router as enrichment_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
@@ -49,7 +49,7 @@ app.include_router(intake_router,     prefix="/api/v1/documents", tags=["documen
 app.include_router(confidence_router, prefix="/api/v1/documents", tags=["documents"])
 app.include_router(review_router,     prefix="/api/v1/documents", tags=["review"])
 app.include_router(ocr_router,        prefix="/api/v1/ocr",       tags=["ocr"])
-
+app.include_router(enrichment_router, prefix="/api/v1/enrichment", tags=["enrichment"])
 
 @app.get("/api/v1/health", tags=["health"])
 async def health() -> dict:

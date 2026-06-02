@@ -20,6 +20,7 @@ from src.auth.exceptions import (
     OtpExpiredError,
     OtpInvalidError,
     RefreshTokenInvalidError,
+    UserAlreadyActiveError,
     UserAlreadyExistsError,
     UserNotActiveError,
     UserNotFoundError,
@@ -165,6 +166,7 @@ async def reset_password(email: str, otp: str, new_password: str) -> None:
 
 async def _send_otp(email: str, purpose: str) -> None:
     """Generate a fresh OTP, persist its hash, and email the plaintext code."""
+    await repository.invalidate_old_otps(email, purpose)
     plain_otp = generate_otp()
     otp_hash = hash_otp(plain_otp)
     expires_at = _now_utc() + timedelta(minutes=auth_settings.OTP_EXP_MINUTES)
@@ -228,3 +230,8 @@ async def get_current_user(user_id: str) -> User:
     if not user or not user.is_active:
         raise UserNotActiveError()
     return user
+
+
+async def resend_verification_otp(email: str) -> None:
+    """Send a new verification OTP unconditionally."""
+    await _send_otp(email=email, purpose="verify_email")
