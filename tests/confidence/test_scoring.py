@@ -263,8 +263,8 @@ def test_scan_fallback_accepts_company_and_position_from_combined_ocr_line():
         },
         validation_results={},
         stored_scores=[
-            {"field_name": "company", "score": 0.95},
-            {"field_name": "position", "score": 0.96},
+            {"field_name": "company", "score": 0.0},
+            {"field_name": "position", "score": 0.9668},
         ],
         raw_text=(
             "Le Thi Lam Tuyen (Ms)\n"
@@ -277,8 +277,30 @@ def test_scan_fallback_accepts_company_and_position_from_combined_ocr_line():
     )
     by_name = {field.field_name: field for field in field_scores}
 
-    assert by_name["company"].score == 0.95
-    assert by_name["position"].score == 0.96
+    assert by_name["company"].score == 0.9668
+    assert by_name["position"].score == 0.9668
+
+
+def test_ocr_scoring_accepts_company_with_typo_inside_combined_line():
+    field_scores = build_field_scores(
+        document_type=DocType.BUSINESS_CARD,
+        normalized_fields={
+            "company": "FPT University Can Tho Campus",
+        },
+        validation_results={},
+        ocr_blocks=[
+            {
+                "text": (
+                    "Head of Corporate Relations Department-"
+                    "FPT Univeristy Can Tho Campus"
+                ),
+                "confidence": 0.9668,
+            },
+        ],
+    )
+    by_name = {field.field_name: field for field in field_scores}
+
+    assert by_name["company"].score == 0.9668
 
 
 def test_validation_failure_blocks_auto_approval():
