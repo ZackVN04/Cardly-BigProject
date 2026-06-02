@@ -371,6 +371,12 @@ def _scan_field_scores(
             block_refs=[],
             fallback_score=(
                 float(by_name.get(field_name, {}).get("score", 0.0))
+                or _shared_scan_line_score(
+                    field_name=field_name,
+                    normalized_fields=normalized_fields,
+                    stored_scores=by_name,
+                    raw_text=raw_text,
+                )
                 if _is_scan_value_consistent(
                     field_name,
                     normalized_fields.get(field_name),
@@ -381,6 +387,34 @@ def _scan_field_scores(
         )
         for field_name in BUSINESS_CARD_FIELDS
     ]
+
+
+def _shared_scan_line_score(
+    *,
+    field_name: str,
+    normalized_fields: dict[str, Any],
+    stored_scores: dict[str, dict[str, Any]],
+    raw_text: str,
+) -> float:
+    """Recover a legacy zero score from another field on the same merged OCR line."""
+    if field_name not in {"company", "position"}:
+        return 0.0
+    value = normalized_fields.get(field_name)
+    if not isinstance(value, str):
+        return 0.0
+
+    for other_name in {"company", "position"} - {field_name}:
+        other_value = normalized_fields.get(other_name)
+        other_score = float(stored_scores.get(other_name, {}).get("score", 0.0))
+        if not isinstance(other_value, str) or other_score <= 0.0:
+            continue
+        if any(
+            _line_supports_value(line, value)
+            and _line_supports_value(line, other_value)
+            for line in raw_text.splitlines()
+        ):
+            return other_score
+    return 0.0
 
 
 def _is_scan_value_consistent(
@@ -444,6 +478,18 @@ def _contains_fuzzy_segment(text: str, expected: str, threshold: float = 0.9) ->
     )
 
 
+def _line_supports_value(line: str, value: str) -> bool:
+    compact_line = _compact_for_match(line)
+    compact_value = _compact_for_match(value)
+    return bool(
+        compact_value
+        and (
+            compact_value in compact_line
+            or _contains_fuzzy_segment(compact_line, compact_value)
+        )
+    )
+
+
 def _score_one_field(
     *,
     field_name: str,
@@ -457,7 +503,7 @@ def _score_one_field(
         field_name,
         validation_results,
     )
-    score = _field_score(value, ocr_blocks, block_refs)
+    score = _field_score(field_name, value, ocr_blocks, block_refs)
     if score == 0.0 and value not in (None, "", []):
         score = _round_score(fallback_score)
     classification = classify_field(score)
@@ -493,6 +539,7 @@ def _score_one_field(
 
 
 def _field_score(
+    field_name: str,
     value: Any,
     ocr_blocks: list[dict[str, Any]],
     block_refs: list[str],
@@ -500,9 +547,17 @@ def _field_score(
     if value in (None, ""):
         return 0.0
 
+    if isinstance(value, list):
+        scores = [
+            _field_score(field_name, item, ocr_blocks, block_refs)
+            for item in value
+            if item
+        ]
+        return max(scores) if scores else 0.0
+
     matching_blocks = _blocks_by_ref(ocr_blocks, block_refs)
     if not matching_blocks:
-        matching_blocks = _blocks_by_text(ocr_blocks, str(value))
+        matching_blocks = _blocks_by_text(field_name, ocr_blocks, str(value))
     if not matching_blocks:
         return 0.0
 
@@ -521,6 +576,7 @@ def _blocks_by_ref(
 
 
 def _blocks_by_text(
+    field_name: str,
     ocr_blocks: list[dict[str, Any]],
     value: str,
 ) -> list[dict[str, Any]]:
@@ -551,6 +607,18 @@ def _blocks_by_text(
     ]
     if compact_matches:
         return compact_matches
+
+    if field_name in {"company", "position"} and len(compact_value) >= 8:
+        fuzzy_matches = [
+            block
+            for block in ocr_blocks
+            if _contains_fuzzy_segment(
+                _compact_for_match(str(block.get("text", ""))),
+                compact_value,
+            )
+        ]
+        if fuzzy_matches:
+            return fuzzy_matches
 
     # Xử lý trường hợp LLM nối 2 dòng OCR lại với nhau (ví dụ: "FPT University Can Tho Campus")
     # hoặc LLM tự sinh thêm tiền tố (ví dụ: "https://" cho website)
