@@ -75,4 +75,3 @@ jobs:
             OCR_ENGINE=gemini
             HIGH_THRESHOLD=0.95
             LOW_THRESHOLD=0.70
-            
