@@ -9,7 +9,7 @@ on:
       - main
 
 env:
-  PROJECT_ID: cardly-devops
+  PROJECT_ID: cardly-project-497102
   GAR_LOCATION: asia-southeast1
   REPOSITORY: cardly-backend-repo
   SERVICE: cardly-backend
