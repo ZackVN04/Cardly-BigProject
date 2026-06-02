@@ -43,6 +43,12 @@ class UserNotActiveError(AppException):
     message = "Account is not yet verified. Please check your email for the OTP."
 
 
+class UserAlreadyActiveError(AppException):
+    status_code = 400
+    code = "USER_ALREADY_ACTIVE"
+    message = "Account is already active. Please log in."
+
+
 class UserNotFoundError(AppException):
     status_code = 404
     code = "USER_NOT_FOUND"

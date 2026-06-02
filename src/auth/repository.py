@@ -61,6 +61,15 @@ async def mark_otp_used(otp_code: OtpCode) -> None:
     await otp_code.save()
 
 
+async def invalidate_old_otps(email: str, purpose: str) -> None:
+    """Mark all previous unused OTPs for this email and purpose as used."""
+    await OtpCode.find(
+        OtpCode.email == email,
+        OtpCode.purpose == purpose,
+        OtpCode.used == False,  # noqa: E712
+    ).update({"$set": {"used": True}})
+
+
 # ── Refresh Token ─────────────────────────────────────────────────────────────
 
 async def create_refresh_token(
