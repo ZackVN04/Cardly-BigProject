@@ -49,7 +49,7 @@ jobs:
           docker build -f docker/Dockerfile -t asia-southeast1-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.SERVICE }}:${{ github.sha }} .
           docker push asia-southeast1-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.SERVICE }}:${{ github.sha }}
 
-      # 4. Triển khai lên Cloud Run và ánh xạ Mật mã từ Secret Manager
+      # 4. Triển khai lên Cloud Run và bốc Mật mã trực tiếp từ Secret Manager
       - name: Deploy to Cloud Run
         uses: google-github-actions/deploy-cloudrun@v2
         with:
@@ -57,6 +57,7 @@ jobs:
           region: ${{ env.REGION }}
           image: asia-southeast1-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.SERVICE }}:${{ github.sha }}
           flags: '--allow-unauthenticated'
+          # ĐÚNG CHUẨN: Biến thông thường nằm ở env_vars, biến bảo mật nằm ở secrets (bọc chung trong env_vars)
           env_vars: |
             ENVIRONMENT=staging
             APP_VERSION=1.0.0
@@ -81,6 +82,4 @@ jobs:
             OCR_ENGINE=gemini
             HIGH_THRESHOLD=0.95
             LOW_THRESHOLD=0.70
-          # BẢO MẬT CHỐT: Cloud Run tự động bốc Key JSON trực tiếp từ Secret Manager khi khởi chạy
-          secrets: |
-            GOOGLE_SERVICE_ACCOUNT_JSON=GOOGLE_SERVICE_ACCOUNT_JSON:latest
+            GOOGLE_SERVICE_ACCOUNT_JSON=secretRef:GOOGLE_SERVICE_ACCOUNT_JSON:latest
