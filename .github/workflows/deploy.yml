@@ -75,4 +75,4 @@ jobs:
             OCR_ENGINE=gemini
             HIGH_THRESHOLD=0.95
             LOW_THRESHOLD=0.70
-            GOOGLE_SERVICE_ACCOUNT_JSON='${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}'
+            
