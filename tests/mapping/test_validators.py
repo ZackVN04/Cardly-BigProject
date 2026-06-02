@@ -3,9 +3,9 @@ import pytest
 from src.common.enums import DocType
 from src.mapping.validators import (
     validate_email_format,
+    validate_fields,
     validate_phone_format,
     validate_url_format,
-    validate_fields,
 )
 
 
@@ -26,6 +26,8 @@ def test_validate_email_format(value, expected):
     ("+15550199", True),
     ("+3293299425", True),
     ("+61298765432", True),
+    (["+84912345678", "+3293299425"], True),
+    (["+84912345678", "123"], False),
     ("123", False),       # too short
     ("12345678901234567", False),  # too long
     ("phone123", False),  # letters
@@ -50,9 +52,9 @@ def test_validate_fields_business_card():
     # Valid and complete
     normalized = {
         "name": "Nguyễn Văn A",
-        "phone": "+84912345678",
+        "phones": ["+84912345678"],
         "email": "nguyen.vana@company.com",
-        "web": "https://www.company.com",
+        "website": "https://www.company.com",
     }
     results, missing = validate_fields(DocType.BUSINESS_CARD, normalized)
 
@@ -63,14 +65,14 @@ def test_validate_fields_business_card():
     # Missing email (required) and invalid phone format
     normalized_invalid = {
         "name": "Nguyễn Văn A",
-        "phone": "invalid-phone",
-        "web": "https://www.company.com",
+        "phones": ["invalid-phone"],
+        "website": "https://www.company.com",
     }
     results, missing = validate_fields(DocType.BUSINESS_CARD, normalized_invalid)
 
     assert missing == ["email"]
     # email validation rule doesn't run since it's not present
     # phone rule runs but fails
-    assert len(results) == 2  # phone, web
-    phone_res = next(r for r in results if r.field_name == "phone")
+    assert len(results) == 2  # phones, website
+    phone_res = next(r for r in results if r.field_name == "phones")
     assert phone_res.passed is False

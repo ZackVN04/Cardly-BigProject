@@ -3,16 +3,16 @@ REQUIRES_REVIEW_FLAG = "requires_manual_review"
 
 BUSINESS_CARD_FIELDS = (
     "name",
-    "position",
-    "company",
-    "address",
-    "phone",
+    "phones",
     "email",
-    "web",
+    "company",
+    "position",
+    "address",
+    "website",
 )
 
 BUSINESS_CARD_IDENTITY_FIELDS = ("name", "company")
-BUSINESS_CARD_CONTACT_FIELDS = ("email", "phone", "web")
+BUSINESS_CARD_CONTACT_FIELDS = ("email", "phones", "website")
 BUSINESS_CARD_CONFIDENCE_FIELDS = BUSINESS_CARD_FIELDS
 
 BUSINESS_CARD_SCHEMA = {

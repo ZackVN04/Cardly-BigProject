@@ -5,6 +5,7 @@ from src.confidence import service as confidence_service
 from src.confidence.exceptions import UnsupportedDocumentType
 from src.confidence.models import ConfidenceClass, OverallClassification
 from src.confidence.service import (
+    _scan_field_scores,
     build_field_scores,
     calculate_overall_score,
     classify_field,
@@ -21,31 +22,34 @@ def _business_card_scores(validation_results=None):
             "name": "Nguyen Van A",
             "position": "Backend Developer",
             "company": "ABC Tech",
-            "phone": "0909123456",
+            "phones": ["+32 9 329 94 25"],
             "email": "vana@abc.com",
-            "web": "abc.com",
+            "website": "https://abc.com",
+            "address": "123 Main Street",
         },
         validation_results=validation_results
         or {
             "email": {"status": "passed", "errors": []},
-            "phone": {"status": "passed", "errors": []},
-            "web": {"status": "passed", "errors": []},
+            "phones": {"status": "passed", "errors": []},
+            "website": {"status": "passed", "errors": []},
         },
         field_block_refs={
             "name": ["block_001"],
             "position": ["block_002"],
             "company": ["block_003"],
             "email": ["block_004"],
-            "phone": ["block_005"],
-            "web": ["block_006"],
+            "phones": ["block_005"],
+            "website": ["block_006"],
+            "address": ["block_007"],
         },
         ocr_blocks=[
             {"id": "block_001", "text": "Nguyen Van A", "confidence": 0.88},
             {"id": "block_002", "text": "Backend Developer", "confidence": 0.72},
             {"id": "block_003", "text": "ABC Tech", "confidence": 0.92},
             {"id": "block_004", "text": "vana@abc.com", "confidence": 0.98},
-            {"id": "block_005", "text": "0909123456", "confidence": 0.95},
+            {"id": "block_005", "text": "+32 9 329 94 25", "confidence": 0.95},
             {"id": "block_006", "text": "abc.com", "confidence": 0.94},
+            {"id": "block_007", "text": "123 Main Street", "confidence": 0.90},
         ],
     )
 
@@ -76,9 +80,10 @@ async def test_failed_confidence_blocked():
             "name": "Nguyen Van A",
             "position": "Backend Developer",
             "company": "ABC Tech",
-            "phone": "0909123456",
+            "phones": ["+3293299425"],
             "email": "vana@abc.com",
-            "web": None,
+            "website": None,
+            "address": "123 Main Street",
         },
         validation_results={},
         field_block_refs={
@@ -86,35 +91,37 @@ async def test_failed_confidence_blocked():
             "position": ["block_002"],
             "company": ["block_003"],
             "email": ["block_004"],
-            "phone": ["block_005"],
+            "phones": ["block_005"],
+            "address": ["block_007"],
         },
         ocr_blocks=[
             {"id": "block_001", "text": "Nguyen Van A", "confidence": 0.88},
             {"id": "block_002", "text": "Backend Developer", "confidence": 0.72},
             {"id": "block_003", "text": "ABC Tech", "confidence": 0.92},
             {"id": "block_004", "text": "vana@abc.com", "confidence": 0.98},
-            {"id": "block_005", "text": "0909123456", "confidence": 0.95},
+            {"id": "block_005", "text": "+32 9 329 94 25", "confidence": 0.95},
+            {"id": "block_007", "text": "123 Main Street", "confidence": 0.90},
         ],
     )
     field_scores = {field.field_name: field for field in field_scores}
 
-    assert field_scores["web"].value is None
-    assert field_scores["web"].score == 0.0
-    assert field_scores["web"].classification == ConfidenceClass.FAILED
-    assert field_scores["web"].requires_manual_review is True
+    assert field_scores["website"].value is None
+    assert field_scores["website"].score == 0.0
+    assert field_scores["website"].classification == ConfidenceClass.FAILED
+    assert field_scores["website"].requires_manual_review is True
 
 
-def test_business_card_only_scores_six_fixed_fields():
+def test_business_card_scores_seven_fixed_fields():
     field_names = [field.field_name for field in _business_card_scores()]
 
     assert field_names == [
         "name",
-        "position",
-        "company",
-        "address",
-        "phone",
+        "phones",
         "email",
-        "web",
+        "company",
+        "position",
+        "address",
+        "website",
     ]
 
 
@@ -123,8 +130,8 @@ def test_business_card_overall_uses_required_groups():
 
     overall_score = calculate_overall_score(DocType.BUSINESS_CARD, field_scores)
 
-    # address=None → score=0.0; average of (0.88+0.72+0.92+0.0+0.95+0.98+0.94)/7 = 0.77
-    assert overall_score == 0.77
+    # Average of the 7 configured business-card confidence fields.
+    assert overall_score == 0.8986
     assert classify_overall(overall_score) == OverallClassification.PARTIAL_SUCCESS
 
 
@@ -135,9 +142,9 @@ def test_compact_text_matching_scores_normalized_phone_and_url():
             "name": "NGUYEN THI NGOC DIEP",
             "position": "Director",
             "company": "SWINBURNE VIETNAM",
-            "phone": "+84903334966",
+            "phones": ["+84903334966"],
             "email": "diepntn12@fe.edu.vn",
-            "web": "https://ICST.ORG",
+            "website": "https://ICST.ORG",
         },
         validation_results={},
         ocr_blocks=[
@@ -151,8 +158,8 @@ def test_compact_text_matching_scores_normalized_phone_and_url():
     )
     by_name = {field.field_name: field for field in field_scores}
 
-    assert by_name["phone"].score == 0.95
-    assert by_name["web"].score == 0.95
+    assert by_name["phones"].score == 0.95
+    assert by_name["website"].score == 0.95
 
 
 def test_international_phone_scores_after_normalization():
@@ -162,9 +169,9 @@ def test_international_phone_scores_after_normalization():
             "name": "Gabriella Magyar",
             "position": "Conference Coordinator",
             "company": "ICST",
-            "phone": "+3293299425",
+            "phones": ["+3293299425"],
             "email": "gabriella.magyar@icst.org",
-            "web": None,
+            "website": None,
         },
         validation_results={},
         ocr_blocks=[
@@ -177,8 +184,71 @@ def test_international_phone_scores_after_normalization():
     )
     by_name = {field.field_name: field for field in field_scores}
 
-    assert by_name["phone"].score == 0.95
-    assert by_name["phone"].classification == ConfidenceClass.HIGH
+    assert by_name["phones"].score == 0.95
+    assert by_name["phones"].classification == ConfidenceClass.HIGH
+
+
+def test_international_phone_scores_after_normalization_without_block_refs():
+    field_scores = build_field_scores(
+        document_type=DocType.BUSINESS_CARD,
+        normalized_fields={
+            "name": "Jane Doe",
+            "position": "Director",
+            "company": "Example Pty Ltd",
+            "phones": ["+61298765432"],
+            "email": "jane@example.com",
+            "website": "https://example.com",
+            "address": "Sydney, Australia",
+        },
+        validation_results={},
+        ocr_blocks=[
+            {"text": "+61 (2) 9876 5432", "confidence": 0.97},
+        ],
+    )
+    by_name = {field.field_name: field for field in field_scores}
+
+    assert by_name["phones"].score == 0.97
+    assert by_name["phones"].classification == ConfidenceClass.HIGH
+
+
+def test_scan_fallback_rejects_truncated_name_score():
+    field_scores = _scan_field_scores(
+        normalized_fields={
+            "name": "Margie",
+            "phones": ["6035550160", "6035550178"],
+            "email": None,
+            "company": "Margie's Travel",
+            "position": "Manager",
+            "address": "8172 Miramar Road, San Diego, CA 12793",
+            "website": "https://www.margiestravel.com",
+        },
+        validation_results={},
+        stored_scores=[
+            {"field_name": "name", "score": 0.989},
+            {"field_name": "phones", "score": 0.9845},
+            {"field_name": "company", "score": 0.9728},
+            {"field_name": "position", "score": 0.9975},
+            {"field_name": "address", "score": 0.9537},
+            {"field_name": "website", "score": 0.9968},
+        ],
+        raw_text=(
+            "8172 Miramar Road\n"
+            "MARGIESHOOP\n"
+            "San Diego,CA 12793\n"
+            "Manager\n"
+            "Ph.603-555-0160\n"
+            "Fax 603-555-0161\n"
+            "Cell 603-555-0178\n"
+            "Margie's Travel\n"
+            "www.margiestravel.com"
+        ),
+    )
+    by_name = {field.field_name: field for field in field_scores}
+
+    assert by_name["name"].score == 0.0
+    assert by_name["name"].classification == ConfidenceClass.FAILED
+    assert by_name["phones"].score == 0.9845
+    assert by_name["website"].score == 0.9968
 
 
 def test_validation_failure_blocks_auto_approval():
