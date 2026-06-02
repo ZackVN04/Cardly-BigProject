@@ -1,4 +1,3 @@
-
 import io
 import os
 import json
@@ -30,7 +29,6 @@ async def save_ocr_raw_text(
     )
     await scan.insert()
     return scan
-
 
 async def pipline_ocr_to_llm(
     images_data: list[bytes],
