@@ -87,7 +87,6 @@ async def run_ocr_pipeline(
         normalized=normalized,
         ocr_blocks=ocr_blocks,
     )
-
     logger.info("OCR pipeline completed for processing_id='%s'", processing_id)
     return cardscan, normalized
 
@@ -105,7 +104,7 @@ async def _run_mapping_and_confidence_stages(
 
         from src.common.enums import DocType
         from src.confidence import service as confidence_service
-        from src.intake.models import UploadedImage
+        from src.intake.models import ImageStatus, UploadedImage
         from src.mapping import service as mapping_service
         from src.ocr.models import AiVisionResult, OcrBlock, OcrResult, VisionRegion
         from src.preprocess.models import PreprocessedImage
@@ -193,14 +192,13 @@ async def _run_mapping_and_confidence_stages(
 
         await confidence_service.score_document(processing_id)
 
-        img = await UploadedImage.find_one(UploadedImage.processing_id == processing_id)
-        if img:
-            img.status = "processed"  # type: ignore[assignment]
-            await img.save()
-            logger.info(
-                "UploadedImage status updated to 'processed' for processing_id='%s'",
-                processing_id,
-            )
+        await UploadedImage.find(UploadedImage.processing_id == processing_id).update(
+            {"$set": {UploadedImage.status: ImageStatus.PROCESSED}}
+        )
+        logger.info(
+            "UploadedImage status updated to 'processed' for processing_id='%s'",
+            processing_id,
+        )
     except Exception as exc:
         logger.error("Failed to run P5/P6 pipeline sync stages: %s", exc, exc_info=True)
 
