@@ -250,6 +250,37 @@ def test_scan_fallback_rejects_truncated_name_score():
     assert by_name["website"].score == 0.9968
 
 
+def test_scan_fallback_accepts_company_and_position_from_combined_ocr_line():
+    field_scores = _scan_field_scores(
+        normalized_fields={
+            "name": "Le Thi Lam Tuyen",
+            "phones": ["+84888494588"],
+            "email": "tuyenltl2@fe.edu.vn",
+            "company": "FPT University Can Tho Campus",
+            "position": "Head of Corporate Relations Department",
+            "address": "600 Nguyen Van Cu St. An Binh Ward, Ninh Kieu Dist. Cantho",
+            "website": "https://cantho.fpt.edu.vn",
+        },
+        validation_results={},
+        stored_scores=[
+            {"field_name": "company", "score": 0.95},
+            {"field_name": "position", "score": 0.96},
+        ],
+        raw_text=(
+            "Le Thi Lam Tuyen (Ms)\n"
+            "Head of Corporate Relations Department-FPT Univeristy Can Tho Campus\n"
+            "+84)888494588\n"
+            "Tuyenltl2@fe.edu.vn\n"
+            "600 Nguyen Van Cu St.An Binh Ward, Ninh Kieu Dist.Cantho\n"
+            "cantho.fpt.edu.vn"
+        ),
+    )
+    by_name = {field.field_name: field for field in field_scores}
+
+    assert by_name["company"].score == 0.95
+    assert by_name["position"].score == 0.96
+
+
 def test_validation_failure_blocks_auto_approval():
     field_scores = {
         field.field_name: field

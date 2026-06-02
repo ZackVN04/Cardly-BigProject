@@ -4,6 +4,7 @@ import asyncio
 import logging
 import re
 from contextlib import suppress
+from difflib import SequenceMatcher
 from time import perf_counter
 from typing import Any
 
@@ -408,6 +409,14 @@ def _is_scan_value_consistent(
         if compact_value in compact_line:
             if len(compact_value) / len(compact_line) >= 0.8:
                 return True
+            if field_name in {"company", "position"} and len(compact_value) >= 8:
+                return True
+        if (
+            field_name in {"company", "position"}
+            and len(compact_value) >= 8
+            and _contains_fuzzy_segment(compact_line, compact_value)
+        ):
+            return True
         if compact_line in compact_value:
             if len(compact_line) / len(compact_value) >= 0.8:
                 return True
@@ -421,6 +430,18 @@ def _is_scan_value_consistent(
         covered_length = sum(len(part) for part in matched_parts)
         return covered_length / len(compact_value) >= 0.8
     return False
+
+
+def _contains_fuzzy_segment(text: str, expected: str, threshold: float = 0.9) -> bool:
+    """Match a long field inside a merged OCR line while tolerating small OCR typos."""
+    if len(text) < len(expected):
+        text, expected = expected, text
+    window_size = len(expected)
+    return any(
+        SequenceMatcher(None, text[start:start + window_size], expected).ratio()
+        >= threshold
+        for start in range(len(text) - window_size + 1)
+    )
 
 
 def _score_one_field(
