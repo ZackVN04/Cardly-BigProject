@@ -26,7 +26,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 1. Bắt tay bảo mật không mật khẩu OIDC với Google Cloud
+      # 1. Bắt tay bảo mật không mật khẩu OIDC với Google Cloud (Giữ nguyên)
       - name: Authenticate with Google Cloud via OIDC
         id: auth
         uses: google-github-actions/auth@v2
@@ -35,15 +35,12 @@ jobs:
           workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
 
-      # 2. Đăng nhập vào kho chứa Docker Artifact Registry
+      # 2. ĐĂNG NHẬP DOCKER: Sử dụng trực tiếp công cụ gcloud thần thánh để bypass hoàn toàn lỗi cache token
       - name: Docker Auth
-        uses: docker/login-action@v3
-        with:
-          registry: asia-southeast1-docker.pkg.dev
-          username: oauth2accesstoken
-          password: ${{ steps.auth.outputs.access_token }}
+        run: |
+          gcloud auth configure-docker asia-southeast1-docker.pkg.dev --quiet
 
-      # 3. Đóng gói và đẩy Container lên kho chứa của cardly-devops
+      # 3. Build and Push Container (Giữ nguyên các dòng build phía dưới)
       - name: Build and Push Container
         run: |
           docker build -f docker/Dockerfile -t asia-southeast1-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.SERVICE }}:${{ github.sha }} .
