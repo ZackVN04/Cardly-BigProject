@@ -27,6 +27,10 @@ class VerifyOtpRequest(CustomModel):
     otp: str = Field(min_length=6, max_length=6, pattern=r"^\d{6}$")
 
 
+class ResendOtpRequest(CustomModel):
+    email: EmailStr
+
+
 class LoginRequest(CustomModel):
     email: EmailStr
     password: str
