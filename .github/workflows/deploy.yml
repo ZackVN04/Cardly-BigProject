@@ -41,10 +41,10 @@ jobs:
         run: |
           gcloud auth configure-docker asia-southeast1-docker.pkg.dev --quiet
 
-      # 3. Build and Push Container
+      # 3. Build and Push Container (Ép đọc file ignore ở thư mục gốc)
       - name: Build and Push Container
         run: |
-          docker build -f docker/Dockerfile -t asia-southeast1-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.SERVICE }}:${{ github.sha }} .
+          docker build --ignore-file .dockerignore -f docker/Dockerfile -t asia-southeast1-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.SERVICE }}:${{ github.sha }} .
           docker push asia-southeast1-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.SERVICE }}:${{ github.sha }}
 
       # 4. Triển khai lên Cloud Run (Tách biệt env_vars và secrets chuẩn Action v2)
