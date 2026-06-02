@@ -17,7 +17,7 @@ class Config(BaseSettings):
     MONGODB_URL: str
     REDIS_URL: str = "redis://localhost:6379/0"
 
-    CORS_ORIGINS: list[str] = ["http://localhost:3000"]
+    CORS_ORIGINS: list[str] = ["http://localhost:3000", "http://localhost:5173"]
     SENTRY_DSN: str | None = None
 
     GOOGLE_SERVICE_ACCOUNT_JSON: dict | None = None
