@@ -47,3 +47,90 @@ def test_extract_fallback_heuristics_when_vision_regions_missing():
     assert result["email"] == "john.doe@example.com"
     assert result["phone"] == "+84999999999"
     assert result["web"] == "www.example.com"
+
+
+def test_extract_from_raw_text_when_vision_regions_share_same_bbox():
+    raw_text = "\n".join([
+        "Institute for ComputerSciences,Social Informatics",
+        "and Telecommunications Engineering",
+        "ICST.ORG",
+        "Gabriella MAGYAR",
+        "Conference Coordinator",
+        "Begijnhoflaan 93a,B-9000Gent,Belgium",
+        "phone:+3293299425",
+        "e-mail:gabriella.magyar@icst.org",
+        "skype:gabriella.magyar-icst",
+        "GentBostonHong KongSydneyAlexandria",
+        "WWw",
+    ])
+    ocr_result = {
+        "raw_text": raw_text,
+        "blocks": [
+            {"text": line, "bbox": [0, 0, 10, 10], "confidence": 0.95}
+            for line in raw_text.splitlines()
+        ],
+    }
+    vision_result = {
+        "detected_regions": [
+            {"label": field, "bbox": [0, 0, 10, 10], "confidence": 0.95}
+            for field in ["name", "phone", "email", "web", "position", "company"]
+        ]
+    }
+
+    mapper = BusinessCardMapper(ocr_result=ocr_result, vision_result=vision_result)
+    result = mapper.extract()
+
+    assert result["name"] == "Gabriella MAGYAR"
+    assert result["phone"] == "+3293299425"
+    assert result["email"] == "gabriella.magyar@icst.org"
+    assert result["web"] == "ICST.ORG"
+    assert result["position"] == "Conference Coordinator"
+    assert result["company"] == (
+        "Institute for ComputerSciences,Social Informatics "
+        "and Telecommunications Engineering"
+    )
+
+
+def test_extract_uppercase_name_before_company_without_website():
+    raw_text = "\n".join([
+        "NGUYEN THI NGOC DIEP",
+        "SWINBURNE VIETNAM",
+        "Director",
+        "ALLIANCE PROGRAM",
+        "600 Nguyen Van Cu Street",
+        "An Binh Ward,Can Tho,Vietnam.",
+        "SWIN",
+        "SWINBURNE",
+        "BUR",
+        "UNIVERSITY OF",
+        "Contact",
+        "TECHNOLOGY",
+        "NE",
+        "+84)903334966",
+        "DiepNTN12@fe.edu.vn",
+        "Alliance with",
+        "Education",
+    ])
+    ocr_result = {
+        "raw_text": raw_text,
+        "blocks": [
+            {"text": line, "bbox": [0, 0, 10, 10], "confidence": 0.95}
+            for line in raw_text.splitlines()
+        ],
+    }
+    vision_result = {
+        "detected_regions": [
+            {"label": field, "bbox": [0, 0, 10, 10], "confidence": 0.95}
+            for field in ["name", "phone", "email", "web", "position", "company"]
+        ]
+    }
+
+    mapper = BusinessCardMapper(ocr_result=ocr_result, vision_result=vision_result)
+    result = mapper.extract()
+
+    assert result["name"] == "NGUYEN THI NGOC DIEP"
+    assert result["phone"] == "+84)903334966"
+    assert result["email"] == "DiepNTN12@fe.edu.vn"
+    assert result["web"] is None
+    assert result["position"] == "Director"
+    assert result["company"] == "SWINBURNE VIETNAM"
