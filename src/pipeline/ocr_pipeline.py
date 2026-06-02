@@ -163,7 +163,6 @@ async def run_ocr_pipeline(processing_id: str, user: User) -> tuple[BusinessCard
 
 _DEBUG_DIR = "storage/debug_ocr"
 
-
 def _debug_dump_images(
     processing_id: str,
     images_raw: list[bytes],
