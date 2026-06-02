@@ -41,19 +41,19 @@ jobs:
         run: |
           gcloud auth configure-docker asia-southeast1-docker.pkg.dev --quiet
 
-      # 3. Build and Push Container (Ép đọc file ignore ở thư mục gốc)
+      # 3. Build and Push Container (Viết cứng ID dự án mới, chấp mọi loại cache trên Web)
       - name: Build and Push Container
         run: |
-          docker build --ignore-file .dockerignore -f docker/Dockerfile -t asia-southeast1-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.SERVICE }}:${{ github.sha }} .
-          docker push asia-southeast1-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.SERVICE }}:${{ github.sha }}
+          docker build -f docker/Dockerfile -t asia-southeast1-docker.pkg.dev/cardly-devops/${{ env.REPOSITORY }}/${{ env.SERVICE }}:${{ github.sha }} .
+          docker push asia-southeast1-docker.pkg.dev/cardly-devops/${{ env.REPOSITORY }}/${{ env.SERVICE }}:${{ github.sha }}
 
-      # 4. Triển khai lên Cloud Run (Tách biệt env_vars và secrets chuẩn Action v2)
+      # 4. Triển khai lên Cloud Run
       - name: Deploy to Cloud Run
         uses: google-github-actions/deploy-cloudrun@v2
         with:
           service: ${{ env.SERVICE }}
           region: ${{ env.REGION }}
-          image: asia-southeast1-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.SERVICE }}:${{ github.sha }}
+          image: asia-southeast1-docker.pkg.dev/cardly-devops/${{ env.REPOSITORY }}/${{ env.SERVICE }}:${{ github.sha }}
           flags: '--allow-unauthenticated'
           env_vars: |
             ENVIRONMENT=staging
