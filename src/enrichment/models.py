@@ -1,3 +1,9 @@
+from datetime import datetime, timezone
+from typing import Optional
+
+from pydantic import BaseModel, ConfigDict, Field
+
+
 class EnrichmentResultDocument(BaseModel):
     id: Optional[str] = Field(default=None, alias="_id")
     contact_id: str
