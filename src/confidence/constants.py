@@ -3,10 +3,11 @@ REQUIRES_REVIEW_FLAG = "requires_manual_review"
 
 BUSINESS_CARD_FIELDS = (
     "name",
-    "position",
-    "company",
     "phones",
     "email",
+    "company",
+    "position",
+    "address",
     "website",
 )
 

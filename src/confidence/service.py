@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from time import perf_counter
 from typing import Any
 
@@ -30,7 +31,8 @@ from src.confidence.schemas import (
 )
 from src.intake.models import UploadedImage
 from src.mapping.models import MappedDocument
-from src.ocr.models import AiVisionResult, OcrResult
+from src.ocr.constants import BusinessCardScanStatus
+from src.ocr.models import AiVisionResult, BusinessCardScan, OcrResult
 
 
 def classify_field(score: float) -> ConfidenceClass:
@@ -191,7 +193,7 @@ async def get_full_document_state(processing_id: str) -> DocumentFullStateRespon
     """Return all document data P7 needs for JSON review."""
     mapped_document = await MappedDocument.find_one(MappedDocument.processing_id == processing_id)
     if mapped_document is None:
-        raise DocumentNotFound(f"Mapped document not found for processing_id={processing_id}")
+        return await _get_scan_fallback_state(processing_id)
     _ensure_business_card(mapped_document.doc_type)
 
     confidence_report = await ConfidenceReport.find_one(
@@ -221,6 +223,7 @@ async def get_full_document_state(processing_id: str) -> DocumentFullStateRespon
         status="ready_for_review" if confidence_report else "processing",
         doc_type=mapped_document.doc_type.value,
         doc_type_confidence=vision_result.doc_type_confidence if vision_result else None,
+        confidence_score=confidence_report.overall_score if confidence_report else None,
         uploaded_at=uploaded_image.uploaded_at.isoformat() if uploaded_image else None,
         processed_at=confidence_report.scored_at.isoformat() if confidence_report else None,
         raw_ocr_output=ocr_result.raw_text if ocr_result else None,
@@ -243,6 +246,182 @@ async def get_full_document_state(processing_id: str) -> DocumentFullStateRespon
     )
 
 
+async def _get_scan_fallback_state(processing_id: str) -> DocumentFullStateResponse:
+    """Return a P6 state from the synchronous OCR scan when P5 has not persisted."""
+    from src.mapping.normalizers import normalize_fields
+    from src.mapping.validators import validate_fields
+
+    scan = await BusinessCardScan.find_one(
+        BusinessCardScan.processing_id == processing_id,
+        BusinessCardScan.status == BusinessCardScanStatus.COMPLETED,
+    )
+    if scan is None:
+        scan = await BusinessCardScan.find_one(
+            BusinessCardScan.processing_id == processing_id
+        )
+    if scan is None:
+        raise DocumentNotFound(f"Document not found for processing_id={processing_id}")
+
+    extracted_fields = _scan_extracted_fields(scan.extracted_data)
+    normalized_fields = normalize_fields(DocType.BUSINESS_CARD, extracted_fields)
+    validation_results, missing = validate_fields(
+        DocType.BUSINESS_CARD,
+        normalized_fields,
+    )
+    field_scores = _scan_field_scores(
+        normalized_fields=normalized_fields,
+        validation_results=validation_results,
+        stored_scores=scan.extracted_data.get("field_scores", []),
+        raw_text=scan.raw_text,
+    )
+    overall_score = calculate_overall_score(DocType.BUSINESS_CARD, field_scores)
+    confidence = ConfidenceResponse(
+        overall_score=overall_score,
+        classification=classify_overall(overall_score).value,
+        field_scores=[
+            FieldConfidenceSchema(**field.model_dump(mode="json"))
+            for field in field_scores
+        ],
+        failed_fields=[
+            field.field_name
+            for field in field_scores
+            if field.classification == ConfidenceClass.FAILED
+        ],
+        requires_manual_review=any(
+            field.requires_manual_review for field in field_scores
+        ),
+    )
+    uploaded_image = await UploadedImage.find_one(
+        UploadedImage.processing_id == processing_id
+    )
+
+    return DocumentFullStateResponse(
+        processing_id=processing_id,
+        document_type=DocType.BUSINESS_CARD.value,
+        status=(
+            "ready_for_review"
+            if scan.status == BusinessCardScanStatus.COMPLETED
+            else "processing"
+        ),
+        doc_type=DocType.BUSINESS_CARD.value,
+        confidence_score=overall_score,
+        uploaded_at=uploaded_image.uploaded_at.isoformat() if uploaded_image else None,
+        processed_at=scan.scanned_at.isoformat(),
+        raw_ocr_output=scan.raw_text,
+        normalized_fields=normalized_fields,
+        extracted_fields=extracted_fields,
+        validation_results=[
+            result.model_dump(mode="json")
+            for result in validation_results
+        ],
+        confidence_report=confidence,
+        confidence=confidence,
+        validation={
+            "missing_required_fields": missing,
+            "validation_results": [
+                result.model_dump(mode="json")
+                for result in validation_results
+            ],
+        },
+    )
+
+
+def _scan_extracted_fields(scan_data: dict[str, Any]) -> dict[str, Any]:
+    """Strip response-only metadata and accept legacy field aliases."""
+    extracted = {
+        key: value
+        for key, value in scan_data.items()
+        if key not in {"confidence_score", "field_scores"}
+    }
+    if "phones" not in extracted and extracted.get("phone"):
+        extracted["phones"] = [extracted.pop("phone")]
+    if "website" not in extracted and "web" in extracted:
+        extracted["website"] = extracted.pop("web")
+    return extracted
+
+
+def _scan_field_scores(
+    *,
+    normalized_fields: dict[str, Any],
+    validation_results: Any,
+    stored_scores: Any,
+    raw_text: str,
+) -> list[FieldConfidence]:
+    """Reuse OCR-stage scores while applying P6 validation and field ordering."""
+    by_name = {
+        str(item.get("field_name")): item
+        for item in stored_scores
+        if isinstance(item, dict) and item.get("field_name")
+    }
+    if "phones" not in by_name and "phone" in by_name:
+        by_name["phones"] = by_name["phone"]
+    if "website" not in by_name and "web" in by_name:
+        by_name["website"] = by_name["web"]
+
+    return [
+        _score_one_field(
+            field_name=field_name,
+            value=normalized_fields.get(field_name),
+            validation_results=validation_results,
+            ocr_blocks=[],
+            block_refs=[],
+            fallback_score=(
+                float(by_name.get(field_name, {}).get("score", 0.0))
+                if _is_scan_value_consistent(
+                    field_name,
+                    normalized_fields.get(field_name),
+                    raw_text,
+                )
+                else 0.0
+            ),
+        )
+        for field_name in BUSINESS_CARD_FIELDS
+    ]
+
+
+def _is_scan_value_consistent(
+    field_name: str,
+    value: Any,
+    raw_text: str,
+) -> bool:
+    """Only reuse scan scores when the extracted value is supported by OCR text."""
+    if value in (None, "", []):
+        return False
+    if isinstance(value, list):
+        return any(
+            _is_scan_value_consistent(field_name, item, raw_text)
+            for item in value
+        )
+
+    compact_value = _compact_for_match(str(value))
+    if not compact_value:
+        return False
+    compact_lines = [
+        _compact_for_match(line)
+        for line in raw_text.splitlines()
+        if _compact_for_match(line)
+    ]
+    for compact_line in compact_lines:
+        if compact_value == compact_line:
+            return True
+        if compact_value in compact_line:
+            if len(compact_value) / len(compact_line) >= 0.8:
+                return True
+        if compact_line in compact_value:
+            if len(compact_line) / len(compact_value) >= 0.8:
+                return True
+
+    if field_name == "address":
+        matched_parts = {
+            compact_line
+            for compact_line in compact_lines
+            if len(compact_line) >= 5 and compact_line in compact_value
+        }
+        covered_length = sum(len(part) for part in matched_parts)
+        return covered_length / len(compact_value) >= 0.8
+    return False
+
+
 def _score_one_field(
     *,
     field_name: str,
@@ -250,12 +429,15 @@ def _score_one_field(
     validation_results: Any,
     ocr_blocks: list[dict[str, Any]],
     block_refs: list[str],
+    fallback_score: float = 0.0,
 ) -> FieldConfidence:
     validation_status, validation_errors = _validation_for_field(
         field_name,
         validation_results,
     )
     score = _field_score(value, ocr_blocks, block_refs)
+    if score == 0.0 and value not in (None, "", []):
+        score = _round_score(fallback_score)
     classification = classify_field(score)
     validation_passed = validation_status == "passed"
     auto_approved = classification == ConfidenceClass.HIGH and validation_passed
@@ -333,6 +515,16 @@ def _blocks_by_text(
     ]
     if partial_1:
         return partial_1
+
+    compact_value = _compact_for_match(value)
+    compact_matches = [
+        block
+        for block in ocr_blocks
+        if compact_value
+        and compact_value in _compact_for_match(str(block.get("text", "")))
+    ]
+    if compact_matches:
+        return compact_matches
         
     # Xử lý trường hợp LLM nối 2 dòng OCR lại với nhau (ví dụ: "FPT University Can Tho Campus")
     # hoặc LLM tự sinh thêm tiền tố (ví dụ: "https://" cho website)
@@ -365,6 +557,7 @@ def _validation_for_field(field_name: str, validation_results: Any) -> tuple[str
     ]
     failed_messages = [
         _get_attr_or_key(item, "message")
+        or f"Validation failed: {_get_attr_or_key(item, 'rule')}"
         for item in field_results
         if _get_attr_or_key(item, "passed") is False
     ]
@@ -424,6 +617,11 @@ def _get_attr_or_key(item: Any, key: str) -> Any:
 
 def _normalize_for_match(value: str) -> str:
     return " ".join(value.lower().split())
+
+
+def _compact_for_match(value: str) -> str:
+    without_protocol = re.sub(r"^https?://", "", value.lower())
+    return re.sub(r"[^a-z0-9]", "", without_protocol)
 
 
 def _round_score(score: float) -> float:

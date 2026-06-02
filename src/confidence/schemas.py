@@ -31,6 +31,7 @@ class DocumentFullStateResponse(CustomModel):
     status: str
     doc_type: str | None = None
     doc_type_confidence: float | None = None
+    confidence_score: float | None = None
     uploaded_at: str | None = None
     processed_at: str | None = None
     raw_ocr_output: Any | None = None
