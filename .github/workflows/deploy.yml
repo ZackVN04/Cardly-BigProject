@@ -26,6 +26,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # 1. Bắt tay bảo mật không mật khẩu OIDC với Google Cloud
       - name: Authenticate with Google Cloud via OIDC
         id: auth
         uses: google-github-actions/auth@v2
@@ -34,6 +35,7 @@ jobs:
           workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
 
+      # 2. Đăng nhập vào kho chứa Docker Artifact Registry
       - name: Docker Auth
         uses: docker/login-action@v3
         with:
@@ -41,23 +43,25 @@ jobs:
           username: oauth2accesstoken
           password: ${{ steps.auth.outputs.access_token }}
 
+      # 3. Đóng gói và đẩy Container lên kho chứa của cardly-devops
       - name: Build and Push Container
         run: |
           docker build -f docker/Dockerfile -t asia-southeast1-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.SERVICE }}:${{ github.sha }} .
           docker push asia-southeast1-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.SERVICE }}:${{ github.sha }}
 
+      # 4. Triển khai lên Cloud Run và ánh xạ Mật mã từ Secret Manager
       - name: Deploy to Cloud Run
         uses: google-github-actions/deploy-cloudrun@v2
         with:
           service: ${{ env.SERVICE }}
           region: ${{ env.REGION }}
           image: asia-southeast1-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.SERVICE }}:${{ github.sha }}
-          flags: '--allow-unauthenticated --timeout=3600 --memory=2Gi --cpu=2 --set-cloudsql-instances=${{ secrets.CLOUDSQL_INSTANCE }}'
-          # Chỉ để lại các cấu hình thông thường, các thông tin nhạy cảm được gọi gián tiếp qua secrets
+          flags: '--allow-unauthenticated'
           env_vars: |
             ENVIRONMENT=staging
             APP_VERSION=1.0.0
             MONGODB_URL=${{ secrets.MONGODB_URL }}
+            REDIS_URL=redis://localhost:6379/0
             CORS_ORIGINS=["*"]
             JWT_SECRET=${{ secrets.JWT_SECRET }}
             JWT_ALG=HS256
@@ -77,5 +81,6 @@ jobs:
             OCR_ENGINE=gemini
             HIGH_THRESHOLD=0.95
             LOW_THRESHOLD=0.70
-            FASTAPI_UPLOADER_JSON_B64=${{ secrets.FASTAPI_UPLOADER_JSON_B64 }}
-            GOOGLE_APPLICATION_CREDENTIALS=/tmp/fastapi-uploader.json
+          # BẢO MẬT CHỐT: Cloud Run tự động bốc Key JSON trực tiếp từ Secret Manager khi khởi chạy
+          secrets: |
+            GOOGLE_SERVICE_ACCOUNT_JSON=GOOGLE_SERVICE_ACCOUNT_JSON:latest
