@@ -64,9 +64,9 @@ jobs:
             OTP_EXP_MINUTES=10
             SMTP_HOST=smtp.gmail.com
             SMTP_PORT=587
-            SMTP_USER=okihawa4@gmail.com
+            SMTP_USER=nonamegamingok@gmail.com
             SMTP_PASSWORD=${{ secrets.SMTP_PASSWORD }}
-            EMAIL_FROM=okihawa4@gmail.com
+            EMAIL_FROM=nonamegamingok@gmail.com
             EMAIL_FROM_NAME=cardly
             MAX_SIZE_MB=10
             STORAGE_PATH=/tmp/ocr_uploads
