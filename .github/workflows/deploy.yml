@@ -77,5 +77,3 @@ jobs:
             OCR_ENGINE=gemini
             HIGH_THRESHOLD=0.95
             LOW_THRESHOLD=0.70
-            FASTAPI_UPLOADER_JSON_B64=${{ secrets.FASTAPI_UPLOADER_JSON_B64 }}
-            GOOGLE_APPLICATION_CREDENTIALS=/tmp/fastapi-uploader.json
