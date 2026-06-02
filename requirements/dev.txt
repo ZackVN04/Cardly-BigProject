@@ -1,6 +1,5 @@
 -r base.txt
 pytest==8.3.2
 pytest-asyncio==0.23.8
-anyio==4.4.0
 ruff==0.6.3
 mypy==1.11.2

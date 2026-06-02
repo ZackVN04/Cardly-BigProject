@@ -1,6 +1,9 @@
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+markers = [
+    "no_db: test does not need MongoDB initialization",
+]
 
 [tool.mypy]
 python_version = "3.12"
