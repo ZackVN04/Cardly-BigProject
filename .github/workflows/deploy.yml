@@ -50,3 +50,28 @@ jobs:
           region: ${{ env.REGION }}
           image: asia-southeast1-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.SERVICE }}:${{ github.sha }}
           flags: '--allow-unauthenticated'
+          # Nạp toàn bộ danh sách biến cấu hình bắt buộc cho Pydantic khởi chạy thành công
+          env_vars: |
+            ENVIRONMENT=production
+            APP_VERSION=1.0.0
+            MONGODB_URL=mongodb+srv://Admin:Admin123@ocrbigproject.vtuevlr.mongodb.net/?appName=OCRBigProject
+            REDIS_URL=redis://localhost:6379/0
+            CORS_ORIGINS=["*"]
+            JWT_SECRET=change-me-in-prod-cardly-secure-key-2026
+            JWT_ALG=HS256
+            JWT_EXP=15
+            REFRESH_TOKEN_EXP=7
+            OTP_EXP_MINUTES=10
+            SMTP_HOST=smtp.gmail.com
+            SMTP_PORT=587
+            SMTP_USER=okihawa4@gmail.com
+            SMTP_PASSWORD=abcdsmqphvtoswrq
+            EMAIL_FROM=okihawa4@gmail.com
+            EMAIL_FROM_NAME=cardly
+            MAX_SIZE_MB=10
+            STORAGE_PATH=/tmp/ocr_uploads
+            MIN_DPI=300
+            GEMINI_API_KEY=your-gemini-api-key-here
+            OCR_ENGINE=gemini
+            HIGH_THRESHOLD=0.95
+            LOW_THRESHOLD=0.70
