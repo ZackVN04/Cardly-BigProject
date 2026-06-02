@@ -18,6 +18,8 @@ async def intake_health() -> dict:
     return {"module": "intake", "status": "ready"}
 
 
+from .exceptions import DuplicateFile
+
 @router.post(
     "",
     response_model=schemas.UploadResponse,
@@ -36,13 +38,37 @@ async def upload_document(
     ``{processing_id}/{filename}``.
     A single pipeline task is enqueued for the whole submission.
     """
-    processing_id = utils.generate_processing_id()
-
     files_to_process = [f for f in [file, file2] if f is not None]
-
-    entries: list[schemas.FileEntry] = []
+    
+    # 1. Gather content and hashes once
+    upload_data = []
+    seen_hashes = set()
+    
     for f in files_to_process:
-        doc, url = await service.ingest_single_file(str(current_user.id), f, processing_id)
+        content = await f.read()
+        f_hash = utils.sha256_of_file(content)
+        
+        if f_hash in seen_hashes:
+            raise DuplicateFile("Two identical files provided in the same request")
+        
+        # Check against database
+        await service.dedupe_by_hash(f_hash, str(current_user.id))
+        
+        seen_hashes.add(f_hash)
+        upload_data.append((f, content, f_hash))
+
+    processing_id = utils.generate_processing_id()
+    entries: list[schemas.FileEntry] = []
+    
+    # 2. Ingest using the pre-read content
+    for f, content, f_hash in upload_data:
+        doc, url = await service.ingest_single_file(
+            str(current_user.id), 
+            f, 
+            processing_id,
+            content,
+            f_hash
+        )
         entries.append(
             schemas.FileEntry(original_filename=doc.original_filename, file_url=url)
         )
