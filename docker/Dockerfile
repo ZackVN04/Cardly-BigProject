@@ -19,5 +19,10 @@ RUN pip install --no-cache-dir setuptools && \
 
 # --- final ---
 FROM deps AS final
+COPY docker/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
 COPY src/ src/
-CMD ["sh", "-c", "uvicorn src.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8080"]
