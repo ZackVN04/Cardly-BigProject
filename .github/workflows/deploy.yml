@@ -46,10 +46,6 @@ jobs:
           docker build -f docker/Dockerfile -t asia-southeast1-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.SERVICE }}:${{ github.sha }} .
           docker push asia-southeast1-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.SERVICE }}:${{ github.sha }}
 
-      - name: Create Clean Service Account File
-        run: |
-          echo "${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}" | base64 -d > gcp-sa-key.json
-
       - name: Deploy to Cloud Run
         uses: google-github-actions/deploy-cloudrun@v2
         with:
@@ -57,7 +53,6 @@ jobs:
           region: ${{ env.REGION }}
           image: asia-southeast1-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.SERVICE }}:${{ github.sha }}
           flags: '--allow-unauthenticated'
-          credentials: gcp-sa-key.json
           env_vars: |
             ENVIRONMENT=staging
             APP_VERSION=1.0.0
@@ -82,3 +77,5 @@ jobs:
             OCR_ENGINE=gemini
             HIGH_THRESHOLD=0.95
             LOW_THRESHOLD=0.70
+            FASTAPI_UPLOADER_JSON_B64=${{ secrets.FASTAPI_UPLOADER_JSON_B64 }}
+            GOOGLE_APPLICATION_CREDENTIALS=/tmp/fastapi-uploader.json
