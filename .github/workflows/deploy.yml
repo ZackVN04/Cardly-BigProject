@@ -36,17 +36,16 @@ jobs:
           workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
 
-      # 2. ĐĂNG NHẬP DOCKER: Sử dụng công cụ gcloud để bypass lỗi cache token
+      # 2. ĐĂNG NHẬP DOCKER: Đảm bảo điền đúng domain repo của bạn mình
       - name: Docker Auth
         run: |
-          gcloud auth configure-docker asia-southeast1-docker.pkg.dev --quiet
+          gcloud auth configure-docker ${{ env.GAR_LOCATION }}-docker.pkg.dev --quiet
 
-      # 3. Build and Push Container (Viết cứng ID dự án mới, chấp mọi loại cache trên Web)
+      # 3. Build and Push Container: Thay vì viết cứng, hãy để biến env tự vận hành cho linh hoạt
       - name: Build and Push Container
         run: |
-          docker build -f docker/Dockerfile -t asia-southeast1-docker.pkg.dev/cardly-devops/${{ env.REPOSITORY }}/${{ env.SERVICE }}:${{ github.sha }} .
-          docker push asia-southeast1-docker.pkg.dev/cardly-devops/${{ env.REPOSITORY }}/${{ env.SERVICE }}:${{ github.sha }}
-
+          docker build -f docker/Dockerfile -t ${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.SERVICE }}:${{ github.sha }} .
+          docker push ${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.SERVICE }}:${{ github.sha }}
       # 4. Triển khai lên Cloud Run
       - name: Deploy to Cloud Run
         uses: google-github-actions/deploy-cloudrun@v2
