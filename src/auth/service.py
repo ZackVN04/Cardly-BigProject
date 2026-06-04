@@ -15,17 +15,19 @@ import bcrypt
 
 from src.auth import repository
 from src.auth.config import auth_settings
-from src.auth.constants import RESET_TOKEN_PREFIX
 from src.auth.exceptions import (
     InvalidCredentialsError,
     OtpAlreadyUsedError,
     OtpExpiredError,
     OtpInvalidError,
     RefreshTokenInvalidError,
-    ResetTokenInvalidError,
-    UserAlreadyActiveError,  # noqa: F401 — kept for potential future use
+    ResetSessionExpiredError,
+    ResetSessionInvalidError,
+    ResetSessionUsedError,
+    UserAlreadyActiveError,
     UserAlreadyExistsError,
-    UserNotActiveError, UserNotRegisteredError,
+    UserNotActiveError,
+    UserNotFoundError,
 )
 from src.auth.models import User
 from src.auth.utils.email import send_otp_email
@@ -35,7 +37,6 @@ from src.auth.utils.jwt import (
     decode_refresh_token,
 )
 from src.auth.utils.otp import generate_otp, hash_otp, verify_otp
-from src.common.redis_client import get_redis
 
 _BCRYPT_ROUNDS = 12
 
@@ -90,7 +91,7 @@ async def verify_email_otp(email: str, otp: str) -> None:
     """Validate the OTP and activate the user account."""
     user = await repository.get_user_by_email(email)
     if not user:
-        raise UserNotRegisteredError()
+        raise UserNotFoundError()
 
     await _consume_otp(email=email, otp=otp, purpose="verify_email")
 
@@ -140,76 +141,77 @@ async def logout(raw_refresh_token: str) -> None:
 # ── Forgot Password ───────────────────────────────────────────────────────────
 
 async def send_password_reset_otp(email: str) -> None:
-    """Send a password-reset OTP if the email belongs to an active account.
+    """Send a password-reset OTP to the given email.
 
-    Always returns without error even if the email is unknown — this
-    prevents user enumeration attacks.
+    Raises UserNotFoundError when the email is not registered or the account
+    is not yet active — this gives the client a clear error signal.
     """
     user = await repository.get_user_by_email(email)
-    if user and user.is_active:
-        await _send_otp(email=email, purpose="reset_password")
-    else:
+    if not user or not user.is_active:
         raise UserNotFoundError()
+    await _send_otp(email=email, purpose="reset_password")
 
-# ── Verify Reset OTP ──────────────────────────────────────────────────────────
 
-async def verify_reset_otp(email: str, otp: str) -> dict:
-    """Validate the password-reset OTP and issue a short-lived reset token.
+# ── Verify Reset OTP ───────────────────────────────────────────────────
 
-    Flow:
-    1. Confirm the user exists.
-    2. Consume the OTP (validates, checks expiry & reuse, marks as used).
-    3. Generate a cryptographically random reset_token and store it in Redis
-       with a TTL of RESET_TOKEN_EXP_MINUTES.  The value stored is the email
-       address so the subsequent reset step doesn't need the client to send it.
-    4. Return the reset_token and its TTL so the client knows how long it has.
+async def verify_reset_otp(email: str, otp: str) -> str:
+    """Validate the password-reset OTP, then issue a short-lived reset token.
+
+    Returns the raw (unhashed) reset_token the client should include in the
+    subsequent /reset-password request.
     """
+    from beanie import PydanticObjectId
+
     user = await repository.get_user_by_email(email)
     if not user:
         raise UserNotFoundError()
 
+    # Validate and mark the OTP as verified+used
     await _consume_otp(email=email, otp=otp, purpose="reset_password")
 
-    reset_token = secrets.token_hex(32)
-    ttl_seconds = auth_settings.RESET_TOKEN_EXP_MINUTES * 60
+    # Invalidate any lingering reset sessions before creating a fresh one
+    await repository.invalidate_old_reset_sessions(user.id)
 
-    redis = await get_redis()
-    await redis.set(f"{RESET_TOKEN_PREFIX}{reset_token}", email, ex=ttl_seconds)
+    # Generate a cryptographically random reset token
+    raw_token = secrets.token_urlsafe(32)
+    token_hash = _hash_token(raw_token)
+    expires_at = _now_utc() + timedelta(minutes=auth_settings.RESET_TOKEN_EXP_MINUTES)
 
-    return {"reset_token": reset_token, "expires_in": ttl_seconds}
+    await repository.create_password_reset_session(
+        user_id=PydanticObjectId(str(user.id)),
+        reset_token_hash=token_hash,
+        expires_at=expires_at,
+    )
+
+    return raw_token
 
 
-# ── Reset Password ────────────────────────────────────────────────────────────
+# ── Reset Password ──────────────────────────────────────────────────────
 
 async def reset_password(reset_token: str, new_password: str) -> None:
-    """Validate the reset token, update the password, and revoke all sessions.
+    """Consume a valid reset token and update the user's password.
 
-    Flow:
-    1. Look up the reset_token in Redis — raises ResetTokenInvalidError if
-       missing or already expired.
-    2. Fetch the user by the email stored in Redis.
-    3. Hash and persist the new password.
-    4. Revoke all active refresh tokens for the user (force re-login).
-    5. Delete the Redis key explicitly so the token cannot be reused within
-       its remaining TTL.
+    Raises ResetSessionInvalidError / ResetSessionExpiredError / ResetSessionUsedError
+    on any token problem; UserNotFoundError if the linked user no longer exists.
     """
-    redis = await get_redis()
-    redis_key = f"{RESET_TOKEN_PREFIX}{reset_token}"
-    email: str | None = await redis.get(redis_key)
+    token_hash = _hash_token(reset_token)
+    session = await repository.get_reset_session_by_token_hash(token_hash)
 
-    if not email:
-        raise ResetTokenInvalidError()
+    if not session:
+        raise ResetSessionInvalidError()
+    if session.is_used:
+        raise ResetSessionUsedError()
+    if session.expires_at.replace(tzinfo=timezone.utc) < _now_utc():
+        raise ResetSessionExpiredError()
 
-    user = await repository.get_user_by_email(email)
+    user = await repository.get_user_by_id(session.user_id)
     if not user:
         raise UserNotFoundError()
 
     new_hash = _hash_password(new_password)
     await repository.update_password(user, new_hash)
     await repository.revoke_all_refresh_tokens(user.id)
-
-    # Invalidate the reset token immediately so it cannot be reused.
-    await redis.delete(redis_key)
+    await repository.mark_reset_session_used(session)
 
 
 # ── Private helpers ───────────────────────────────────────────────────────────

@@ -7,7 +7,7 @@ from datetime import datetime
 
 from beanie import PydanticObjectId
 
-from src.auth.models import OtpCode, RefreshToken, User
+from src.auth.models import OtpCode, PasswordResetSession, RefreshToken, User
 
 
 # ── User ──────────────────────────────────────────────────────────────────────
@@ -58,6 +58,15 @@ async def get_latest_otp(email: str, purpose: str) -> OtpCode | None:
 
 async def mark_otp_used(otp_code: OtpCode) -> None:
     otp_code.used = True
+    otp_code.updated_at = datetime.utcnow()
+    await otp_code.save()
+
+
+async def mark_otp_verified(otp_code: OtpCode) -> None:
+    """Mark OTP as verified (used in the two-step reset flow) without fully consuming it."""
+    otp_code.used = True
+    otp_code.is_verified = True
+    otp_code.updated_at = datetime.utcnow()
     await otp_code.save()
 
 
@@ -95,3 +104,35 @@ async def revoke_all_refresh_tokens(user_id: PydanticObjectId) -> None:
         RefreshToken.user_id == user_id,
         RefreshToken.revoked == False,  # noqa: E712
     ).update({"$set": {"revoked": True}})
+
+
+# ── Password Reset Session ────────────────────────────────────────────────────
+
+async def create_password_reset_session(
+    user_id: PydanticObjectId, reset_token_hash: str, expires_at: datetime
+) -> PasswordResetSession:
+    session = PasswordResetSession(
+        user_id=user_id,
+        reset_token_hash=reset_token_hash,
+        expires_at=expires_at,
+    )
+    await session.insert()
+    return session
+
+
+async def get_reset_session_by_token_hash(token_hash: str) -> PasswordResetSession | None:
+    return await PasswordResetSession.find_one(PasswordResetSession.reset_token_hash == token_hash)
+
+
+async def mark_reset_session_used(session: PasswordResetSession) -> None:
+    session.is_used = True
+    session.updated_at = datetime.utcnow()
+    await session.save()
+
+
+async def invalidate_old_reset_sessions(user_id: PydanticObjectId) -> None:
+    """Mark all unused reset sessions for a user as used before issuing a new one."""
+    await PasswordResetSession.find(
+        PasswordResetSession.user_id == user_id,
+        PasswordResetSession.is_used == False,  # noqa: E712
+    ).update({"$set": {"is_used": True, "updated_at": datetime.utcnow()}})
