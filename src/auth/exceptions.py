@@ -49,10 +49,10 @@ class UserAlreadyActiveError(AppException):
     message = "Account is already active. Please log in."
 
 
-class UserNotRegisteredError(AppException):
+class UserNotFoundError(AppException):
     status_code = 404
-    code = "USER_NOT_REGISTERED"
-    message = "This account is not registered"
+    code = "USER_NOT_FOUND"
+    message = "No account found with that email address."
 
 
 # ── Tokens ────────────────────────────────────────────────────────────────────
@@ -69,12 +69,21 @@ class AccessTokenInvalidError(AppException):
     message = "Access token is invalid or expired."
 
 
-class ResetTokenInvalidError(AppException):
-    status_code = 400
-    code = "RESET_TOKEN_INVALID"
-    message = "Password reset token is invalid or has expired. Please request a new OTP."
+# ── Password Reset Session ───────────────────────────────────────────────
 
-class UserNotFound(AppException):
-    status_code = 404
-    code = "USER_NOT_FOUND"
-    message = "No account found with that email address."
+class ResetSessionInvalidError(AppException):
+    status_code = 400
+    code = "RESET_SESSION_INVALID"
+    message = "Password reset token is invalid."
+
+
+class ResetSessionExpiredError(AppException):
+    status_code = 400
+    code = "RESET_SESSION_EXPIRED"
+    message = "Password reset token has expired. Please request a new OTP."
+
+
+class ResetSessionUsedError(AppException):
+    status_code = 400
+    code = "RESET_SESSION_USED"
+    message = "Password reset token has already been used."

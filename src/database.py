@@ -2,7 +2,7 @@ from beanie import init_beanie
 from motor.motor_asyncio import AsyncIOMotorClient
 
 from src.config import settings
-from src.auth.models import User, RefreshToken, OtpCode
+from src.auth.models import User, RefreshToken, OtpCode, PasswordResetSession
 from src.intake.models import UploadedImage
 from src.preprocess.models import PreprocessedImage
 from src.ocr.models import OcrResult, AiVisionResult, BusinessCardScan
@@ -14,6 +14,7 @@ ALL_DOCUMENTS = [
     User,
     RefreshToken,
     OtpCode,
+    PasswordResetSession,
     UploadedImage,
     PreprocessedImage,
     OcrResult,

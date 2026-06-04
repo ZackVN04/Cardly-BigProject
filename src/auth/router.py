@@ -23,11 +23,11 @@ from src.auth.schemas import (
     RegisterRequest,
     ResendOtpRequest,
     ResetPasswordRequest,
+    ResetTokenResponse,
     TokenResponse,
     UserResponse,
     VerifyOtpRequest,
     VerifyResetOtpRequest,
-    VerifyResetOtpResponse,
 )
 
 router = APIRouter()
@@ -106,18 +106,12 @@ async def forgot_password(body: ForgotPasswordRequest) -> MessageResponse:
 
 @router.post(
     "/verify-reset-otp",
-    response_model=VerifyResetOtpResponse,
-    summary="Verify the password-reset OTP and receive a reset token",
+    response_model=ResetTokenResponse,
+    summary="Verify password-reset OTP and obtain a reset token",
 )
-async def verify_reset_otp(body: VerifyResetOtpRequest) -> VerifyResetOtpResponse:
-    """Step 1 of the two-step password-reset flow.
-
-    Validates the OTP emailed by POST /forgot-password and, on success,
-    returns a short-lived reset_token that must be presented to
-    POST /reset-password.
-    """
-    result = await service.verify_reset_otp(email=body.email, otp=body.otp)
-    return VerifyResetOtpResponse(**result)
+async def verify_reset_otp(body: VerifyResetOtpRequest) -> ResetTokenResponse:
+    reset_token = await service.verify_reset_otp(email=body.email, otp=body.otp)
+    return ResetTokenResponse(reset_token=reset_token)
 
 
 @router.post(
@@ -126,11 +120,6 @@ async def verify_reset_otp(body: VerifyResetOtpRequest) -> VerifyResetOtpRespons
     summary="Reset password using a verified reset token",
 )
 async def reset_password(body: ResetPasswordRequest) -> MessageResponse:
-    """Step 2 of the two-step password-reset flow.
-
-    Requires the reset_token issued by POST /verify-reset-otp.
-    The token is single-use and expires after RESET_TOKEN_EXP_MINUTES.
-    """
     await service.reset_password(
         reset_token=body.reset_token,
         new_password=body.new_password,
