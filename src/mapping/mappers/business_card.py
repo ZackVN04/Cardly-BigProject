@@ -1,11 +1,7 @@
-<<<<<<< HEAD
 from __future__ import annotations
 
-=======
-from collections import Counter
-from typing import Any
->>>>>>> 7c6c5de (Fix business card mapping heuristics)
 import re
+from collections import Counter
 from typing import Any
 
 from src.mapping.mappers.base import BaseMapper
@@ -21,7 +17,7 @@ _EMAIL_RE = re.compile(
 # Covers international (+84 ...) and local Vietnamese (09xx xxx xxx) formats.
 # Uses backtracking-friendly groups so digit clusters of varying sizes match.
 _PHONE_RE = re.compile(
-    r"(?:\+\d{1,3}[\s\-]?)?"          # optional country code
+    r"(?:\+\d{1,3}\)?[\s\-]?)?"       # optional country code
     r"\(?\d{2,4}\)?"                    # area/prefix (may have parens)
     r"[\s.\-]?\d{3,4}"                  # middle group
     r"[\s.\-]?\d{3,6}",                 # trailing group
@@ -432,4 +428,3 @@ class BusinessCardMapper(BaseMapper):
             "vietnam", "technology", "education", "program",
         )
         return any(keyword in lower for keyword in company_keywords)
->>>>>>> 7c6c5de (Fix business card mapping heuristics)

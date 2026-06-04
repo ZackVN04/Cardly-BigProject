@@ -3,53 +3,31 @@ OCR pipeline orchestrator for the synchronous API endpoint.
 
 This module wires together the GCS download, the preprocess adapter,
 and the OCR service into a single callable used by ``src/ocr/router.py``.
-
-Flow
-----
-  1. Look up all ``UploadedImage`` records for the given ``processing_id``
-     (there may be 1 or 2, representing front/back of a card).
-  2. Download each image's bytes directly from Google Cloud Storage.
-  3. Pass the raw bytes list through the preprocess adapter,
-     which returns ``images_data: list[bytes]``.
-  4. Pass ``images_data`` to ``src.ocr.service.pipline_ocr_to_llm``.
-  5. Return the resulting dict to the router.
-
-This module contains **no business logic** — it only orchestrates existing
-modules and must not duplicate logic from ``src/preprocess``, ``src/ocr``,
-or ``src/intake``.
 """
 
 from __future__ import annotations
 
 import logging
+import os
 
 from fastapi import HTTPException, status
 from google.cloud import storage
 
 from src.auth.models import User
-from src.ocr.models import BusinessCardScan
-from src.intake import config as intake_cfg
 from src.config import settings as global_cfg
-from src.preprocess.adapter import preprocess_image_bytes
+from src.intake import config as intake_cfg
+from src.ocr.models import BusinessCardScan
+from src.ocr.response_schema import ExtractionResponse
 from src.ocr.service import pipline_ocr_to_llm
+from src.preprocess.adapter import preprocess_image_bytes
 
 logger = logging.getLogger(__name__)
 
 
 async def _download_images_from_gcs(processing_id: str) -> list[bytes]:
-    """Fetch all image blobs for *processing_id* from GCS and return their bytes.
+    """Fetch all non-rejected image blobs for *processing_id* from GCS."""
+    from src.intake.models import ImageStatus, UploadedImage
 
-    Looks up every ``UploadedImage`` document associated with *processing_id*
-    (1 or 2 files) and downloads each one directly from Cloud Storage.
-
-    Raises
-    ------
-    HTTPException 404
-        If no documents are found for the given ``processing_id``.
-    HTTPException 502
-        If a GCS download fails.
-    """
-    from src.intake.models import UploadedImage, ImageStatus
     docs = await UploadedImage.find(
         UploadedImage.processing_id == processing_id,
         UploadedImage.status != ImageStatus.REJECTED_INVALID,
@@ -77,77 +55,76 @@ async def _download_images_from_gcs(processing_id: str) -> list[bytes]:
                 detail=f"Image file not found in storage: '{doc.storage_path}'",
             )
         raw_bytes: bytes = blob.download_as_bytes()
-        logger.info(
-            "Downloaded '%s' from GCS (%d bytes)",
-            doc.storage_path,
-            len(raw_bytes),
-        )
+        logger.info("Downloaded '%s' from GCS (%d bytes)", doc.storage_path, len(raw_bytes))
         images_raw.append(raw_bytes)
 
     return images_raw
 
 
-async def run_ocr_pipeline(processing_id: str, user: User) -> dict:
-    """Run the full preprocess → OCR pipeline for an already-uploaded document.
-
-    Parameters
-    ----------
-    processing_id:
-        The correlation key assigned at upload time.  Used to locate and
-        download all associated image files from GCS.
-
-    Returns
-    -------
-    dict
-        Structured OCR extraction result matching the ``BusinessCard`` schema.
-    """
+async def run_ocr_pipeline(
+    processing_id: str,
+    user: User,
+) -> tuple[BusinessCardScan, ExtractionResponse]:
+    """Run the full preprocess -> OCR -> mapping/confidence pipeline."""
     logger.info("OCR pipeline started for processing_id='%s'", processing_id)
 
-    # Step 1: download raw bytes from GCS
     images_raw: list[bytes] = await _download_images_from_gcs(processing_id)
-
-    # Step 2: preprocess — list[bytes] → list[bytes] (processed)
     images_data: list[bytes] = await preprocess_image_bytes(images_raw)
 
-    # Step 3: OCR + LLM extraction — list[bytes] → dict
-    cardscan: BusinessCardScan
-    result: dict
-    ocr_blocks: list[dict]
+    # Uncomment while diagnosing preprocess/OCR image quality issues.
+    # _debug_dump_images(processing_id, images_raw, images_data)
 
-    cardscan, result, ocr_blocks = await pipline_ocr_to_llm(
-        images_raw,
+    cardscan, normalized, ocr_blocks = await pipline_ocr_to_llm(
+        images_data,
         str(user.id),
-        processing_id
+        processing_id,
     )
 
-    # Step 4: Synchronously run P5 mapping and P6 confidence scoring to support the local review/confirm API testing
+    await _run_mapping_and_confidence_stages(
+        processing_id=processing_id,
+        user_id=str(user.id),
+        cardscan=cardscan,
+        normalized=normalized,
+        ocr_blocks=ocr_blocks,
+    )
+
+    logger.info("OCR pipeline completed for processing_id='%s'", processing_id)
+    return cardscan, normalized
+
+
+async def _run_mapping_and_confidence_stages(
+    processing_id: str,
+    user_id: str,
+    cardscan: BusinessCardScan,
+    normalized: ExtractionResponse,
+    ocr_blocks: list[dict],
+) -> None:
+    """Persist P4 outputs, then run P5 mapping and P6 confidence scoring."""
     try:
-        from src.ocr.models import OcrResult, OcrBlock, AiVisionResult, VisionRegion
-        from src.common.enums import DocType
         from beanie import PydanticObjectId
-        from src.preprocess.models import PreprocessedImage
-        from src.mapping import service as mapping_service
+
+        from src.common.enums import DocType
         from src.confidence import service as confidence_service
         from src.intake.models import UploadedImage
+        from src.mapping import service as mapping_service
+        from src.ocr.models import AiVisionResult, OcrBlock, OcrResult, VisionRegion
+        from src.preprocess.models import PreprocessedImage
 
-        # Find preprocessed image
         prep = await PreprocessedImage.find_one(PreprocessedImage.processing_id == processing_id)
         prep_id = prep.id if prep else PydanticObjectId()
 
-        # Save OcrResult (delete existing to overwrite schema)
         ocr_res = await OcrResult.find_one(OcrResult.processing_id == processing_id)
         if ocr_res:
             await ocr_res.delete()
-        
-        # Build OcrResult blocks with REAL bounding boxes from PaddleOCR
+
         blocks = [
             OcrBlock(
-                id=f"b_{i}",
-                text=b["text"],
-                bbox=b["bbox"],
-                confidence=b["confidence"],
+                id=block.get("id") or f"b_{index}",
+                text=block["text"],
+                bbox=block["bbox"],
+                confidence=block["confidence"],
             )
-            for i, b in enumerate(ocr_blocks)
+            for index, block in enumerate(ocr_blocks)
         ]
         ocr_res = OcrResult(
             processing_id=processing_id,
@@ -160,51 +137,37 @@ async def run_ocr_pipeline(processing_id: str, user: User) -> dict:
         )
         await ocr_res.insert()
 
-        # ----------------------------------------------------------------
-        # Align VisionRegion bboxes to actual OCR blocks.
-        # For each semantic label we look up the LLM-extracted value and
-        # find the OCR block whose text best contains that value.
-        # The block's real bbox is then used as the region bbox so that
-        # P5 mapping (_find_block_near) resolves the correct block.
-        # ----------------------------------------------------------------
-        # Map from Vision label → LLM result key(s)
-        _label_to_result_keys: dict[str, list[str]] = {
-            "name":     ["name"],
-            "phone":    ["phones"],      # list — take first element
-            "email":    ["email"],
-            "web":      ["website"],
+        extracted = normalized.model_dump(mode="python")
+        label_to_result_keys: dict[str, list[str]] = {
+            "name": ["name"],
+            "phone": ["phones"],
+            "email": ["email"],
+            "web": ["website"],
             "position": ["position"],
-            "company":  ["company"],
-            "address":  ["address"],
+            "company": ["company"],
+            "address": ["address"],
         }
 
-        def _best_block_bbox(value: str | None) -> list[float]:
-            """Return bbox of the OCR block whose text best contains *value*."""
+        def best_block_bbox(value: str | None) -> list[float]:
             if not value or not ocr_blocks:
                 return [0.0, 0.0, 10.0, 10.0]
             needle = value.strip().lower()
-            # 1st pass: block text contains the needle
-            for blk in ocr_blocks:
-                if needle in blk["text"].lower():
-                    return blk["bbox"]
-            # 2nd pass: needle contains the block text (partial match)
-            for blk in ocr_blocks:
-                if blk["text"].lower() in needle:
-                    return blk["bbox"]
+            for block in ocr_blocks:
+                if needle in block["text"].lower():
+                    return block["bbox"]
+            for block in ocr_blocks:
+                if block["text"].lower() in needle:
+                    return block["bbox"]
             return [0.0, 0.0, 10.0, 10.0]
 
         detected_regions: list[VisionRegion] = []
-        for field_label, result_keys in _label_to_result_keys.items():
-            raw_val = result.get(result_keys[0])
-            # phones field is a list — use first entry if present
-            if isinstance(raw_val, list):
-                raw_val = raw_val[0] if raw_val else None
-            bbox = _best_block_bbox(raw_val)
-            detected_regions.append(
-                VisionRegion(label=field_label, bbox=bbox, confidence=0.95)
-            )
+        for field_label, result_keys in label_to_result_keys.items():
+            raw_value = extracted.get(result_keys[0])
+            if isinstance(raw_value, list):
+                raw_value = raw_value[0] if raw_value else None
+            bbox = best_block_bbox(raw_value)
+            detected_regions.append(VisionRegion(label=field_label, bbox=bbox, confidence=0.95))
 
-        # Save AiVisionResult (delete existing to overwrite schema)
         vision_res = await AiVisionResult.find_one(AiVisionResult.processing_id == processing_id)
         if vision_res:
             await vision_res.delete()
@@ -220,27 +183,62 @@ async def run_ocr_pipeline(processing_id: str, user: User) -> dict:
         )
         await vision_res.insert()
 
-        # Map document fields (P5)
         await mapping_service.map_document_fields(
             processing_id=processing_id,
             doc_type=DocType.BUSINESS_CARD,
             ocr_result=ocr_res.model_dump(),
             vision_result=vision_res.model_dump(),
-            user_id=str(user.id),
+            user_id=user_id,
         )
 
-        # Score document confidence (P6)
         await confidence_service.score_document(processing_id)
 
-        # Update UploadedImage status to processed
         img = await UploadedImage.find_one(UploadedImage.processing_id == processing_id)
         if img:
             img.status = "processed"  # type: ignore[assignment]
             await img.save()
-            logger.info("UploadedImage status updated to 'processed' for processing_id='%s'", processing_id)
+            logger.info(
+                "UploadedImage status updated to 'processed' for processing_id='%s'",
+                processing_id,
+            )
+    except Exception as exc:
+        logger.error("Failed to run P5/P6 pipeline sync stages: %s", exc, exc_info=True)
 
-    except Exception as e:
-        logger.error("Failed to run P5/P6 pipeline sync stages: %s", str(e), exc_info=True)
 
-    logger.info("OCR pipeline completed for processing_id='%s'", processing_id)
-    return result
+_DEBUG_DIR = "storage/debug_ocr"
+
+
+def _debug_dump_images(
+    processing_id: str,
+    images_raw: list[bytes],
+    images_data: list[bytes],
+) -> None:
+    """Save raw and preprocessed image bytes for visual inspection."""
+    os.makedirs(_DEBUG_DIR, exist_ok=True)
+
+    def ext(data: bytes) -> str:
+        if data[:8] == b"\x89PNG\r\n\x1a\n":
+            return "png"
+        if data[:2] == b"\xff\xd8":
+            return "jpg"
+        if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+            return "webp"
+        return "bin"
+
+    for index, (raw, processed) in enumerate(zip(images_raw, images_data, strict=False)):
+        raw_path = os.path.join(_DEBUG_DIR, f"{processing_id}_{index}_raw.{ext(raw)}")
+        proc_path = os.path.join(_DEBUG_DIR, f"{processing_id}_{index}_processed.{ext(processed)}")
+
+        with open(raw_path, "wb") as file:
+            file.write(raw)
+        with open(proc_path, "wb") as file:
+            file.write(processed)
+
+        logger.info(
+            "[DEBUG] Dumped image[%d] -> raw=%s (%d bytes), processed=%s (%d bytes)",
+            index,
+            raw_path,
+            len(raw),
+            proc_path,
+            len(processed),
+        )
