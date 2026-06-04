@@ -49,10 +49,10 @@ class UserAlreadyActiveError(AppException):
     message = "Account is already active. Please log in."
 
 
-class UserNotFoundError(AppException):
+class UserNotRegisteredError(AppException):
     status_code = 404
-    code = "USER_NOT_FOUND"
-    message = "No account found with that email address."
+    code = "USER_NOT_REGISTERED"
+    message = "This account is not registered"
 
 
 # ── Tokens ────────────────────────────────────────────────────────────────────

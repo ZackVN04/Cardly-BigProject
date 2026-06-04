@@ -25,8 +25,7 @@ from src.auth.exceptions import (
     ResetTokenInvalidError,
     UserAlreadyActiveError,  # noqa: F401 — kept for potential future use
     UserAlreadyExistsError,
-    UserNotActiveError,
-    UserNotFoundError,
+    UserNotActiveError, UserNotRegisteredError,
 )
 from src.auth.models import User
 from src.auth.utils.email import send_otp_email
@@ -91,7 +90,7 @@ async def verify_email_otp(email: str, otp: str) -> None:
     """Validate the OTP and activate the user account."""
     user = await repository.get_user_by_email(email)
     if not user:
-        raise UserNotFoundError()
+        raise UserNotRegisteredError()
 
     await _consume_otp(email=email, otp=otp, purpose="verify_email")
 
@@ -149,7 +148,8 @@ async def send_password_reset_otp(email: str) -> None:
     user = await repository.get_user_by_email(email)
     if user and user.is_active:
         await _send_otp(email=email, purpose="reset_password")
-
+    else:
+        raise UserNotFoundError()
 
 # ── Verify Reset OTP ──────────────────────────────────────────────────────────
 
