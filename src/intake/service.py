@@ -319,36 +319,81 @@ async def get_image_stream(
     return _iter_chunks(), doc.mime_type, doc.original_filename
 
 
-async def soft_delete(processing_id: str, user_id: str) -> None:
-    """Mark the document(s) as soft-deleted (status → REJECTED_INVALID)."""
-    from src.intake.models import UploadedImage, ImageStatus
+async def hard_delete(processing_id: str, user_id: str) -> None:
+    """Permanently delete the document(s) from DB and GCS across all modules."""
+    from src.intake.models import UploadedImage
+    from src.preprocess.models import PreprocessedImage
+    from src.ocr.models import OcrResult, AiVisionResult, BusinessCardScan
+    from src.mapping.models import MappedDocument
+    from src.confidence.models import ConfidenceReport, ProcessingHistory
+    from src.review.models import JsonReviewSession, FinalizedDocument
     from beanie import PydanticObjectId
+    import asyncio
 
-    docs = []
-    try:
-        oid = PydanticObjectId(processing_id)
-        doc = await UploadedImage.find_one(UploadedImage.id == oid)
-        if doc:
-            docs = [doc]
-    except Exception:
-        pass
+    # 1. Identify all documents and storage paths
+    uploaded_images = await UploadedImage.find(UploadedImage.processing_id == processing_id).to_list()
+    if not uploaded_images:
+        # We still try to delete other related data just in case intake record was lost
+        # but let's check if there's ANYTHING for this processing_id in other collections
+        # to avoid 404 if the processing_id is totally invalid.
+        if not await PreprocessedImage.find_one(PreprocessedImage.processing_id == processing_id):
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Document '{processing_id}' not found")
 
-    if not docs:
-        docs = await UploadedImage.find(UploadedImage.processing_id == processing_id).to_list()
-
-    if not docs:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Document '{processing_id}' not found")
-
-    for doc in docs:
-        if user_id != "MOCK_USER":
-            try:
-                if doc.user_id != PydanticObjectId(user_id):
-                    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
-            except Exception:
+    # 2. Permission check (if not mock user)
+    if user_id != "MOCK_USER":
+        user_oid = PydanticObjectId(user_id)
+        for doc in uploaded_images:
+            if doc.user_id != user_oid:
                 raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
 
-        if doc.status == ImageStatus.REJECTED_INVALID:
-            continue
+    # 3. Determine GCS prefix for deletion
+    gcs_prefixes: set[str] = set()
+    
+    # Prefix from UploadedImage
+    for doc in uploaded_images:
+        if doc.user_id:
+            gcs_prefixes.add(f"{str(doc.user_id)}/{processing_id}/")
+    
+    # Prefix from PreprocessedImage (if any)
+    preprocessed_images = await PreprocessedImage.find(PreprocessedImage.processing_id == processing_id).to_list()
+    for p_img in preprocessed_images:
+        if p_img.processed_storage_path:
+            parts = p_img.processed_storage_path.split("/")
+            if len(parts) >= 2:
+                gcs_prefixes.add(f"{parts[0]}/{parts[1]}/")
+                
+    # Fallback if no docs found but we have a user_id
+    if not gcs_prefixes and user_id != "MOCK_USER":
+        gcs_prefixes.add(f"{user_id}/{processing_id}/")
 
-        doc.status = ImageStatus.REJECTED_INVALID
-        await doc.save()
+    # 4. Delete from Database (All related collections)
+    await asyncio.gather(
+        UploadedImage.find(UploadedImage.processing_id == processing_id).delete(),
+        PreprocessedImage.find(PreprocessedImage.processing_id == processing_id).delete(),
+        OcrResult.find(OcrResult.processing_id == processing_id).delete(),
+        AiVisionResult.find(AiVisionResult.processing_id == processing_id).delete(),
+        BusinessCardScan.find(BusinessCardScan.processing_id == processing_id).delete(),
+        MappedDocument.find(MappedDocument.processing_id == processing_id).delete(),
+        ConfidenceReport.find(ConfidenceReport.processing_id == processing_id).delete(),
+        ProcessingHistory.find(ProcessingHistory.processing_id == processing_id).delete(),
+        JsonReviewSession.find(JsonReviewSession.processing_id == processing_id).delete(),
+        FinalizedDocument.find(FinalizedDocument.processing_id == processing_id).delete(),
+    )
+
+    # 5. Delete from GCS (Folder level)
+    if gcs_prefixes:
+        client = await run_in_threadpool(_get_storage_client)
+        bucket = client.bucket(intake_cfg.intake_settings.GCS_BUCKET_NAME)
+
+        def _delete_folders(prefixes: set[str]):
+            for prefix in prefixes:
+                try:
+                    # Convert iterator to list to ensure all blobs are captured and deleted
+                    blobs = list(bucket.list_blobs(prefix=prefix))
+                    if blobs:
+                        bucket.delete_blobs(blobs)
+                except Exception:
+                    # Log or ignore errors during mass deletion
+                    pass
+
+        await run_in_threadpool(_delete_folders, gcs_prefixes)
