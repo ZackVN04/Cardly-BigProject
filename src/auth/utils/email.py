@@ -54,7 +54,7 @@ async def _send(subject: str, body_html: str, to_email: str) -> None:
             tls_context=context,
         )
     except aiosmtplib.SMTPException as exc:
-        logger.error("SMTP error when sending to %s: %s", to_email, exc)
+        logger.error("SMTP error when sending s to %s: %s", to_email, exc)
         raise EmailDeliveryError() from exc
     except OSError as exc:
         # Covers network-level failures: connection refused, DNS failure, timeout, etc.
