@@ -58,7 +58,7 @@ ruff check src/ tests/
 ## API endpoints
 
 See [docs/api_endpoints.md](docs/api_endpoints.md) or `/docs` when running locally.
-
+```mermaid
 graph TD
     %% Define styles
     classDef client fill:#f9f,stroke:#333,stroke-width:2px;
@@ -151,3 +151,4 @@ graph TD
     ocr_service --> ocr_clients
     ocr_service --> ocr_models
     ocr_models --> MongoDB
+```
