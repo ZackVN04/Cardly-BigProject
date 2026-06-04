@@ -47,13 +47,23 @@ async def register(body: RegisterRequest) -> MessageResponse:
 
 
 @router.post(
-    "/verify-otp",
+    "/verify-email-otp",
     response_model=MessageResponse,
     summary="Verify email with OTP",
 )
-async def verify_otp(body: VerifyOtpRequest) -> MessageResponse:
+async def verify_email_otp(body: VerifyOtpRequest) -> MessageResponse:
     await service.verify_email_otp(email=body.email, otp=body.otp)
-    return MessageResponse(message="Email verified. Your account is now active.")
+    return MessageResponse(message="Email verified successfully.")
+
+
+@router.post(
+    "/verify-otp",
+    response_model=MessageResponse,
+    summary="Deprecated: verify email with OTP",
+    deprecated=True,
+)
+async def verify_otp(body: VerifyOtpRequest) -> MessageResponse:
+    return await verify_email_otp(body)
 
 
 @router.post(
@@ -113,7 +123,7 @@ async def reset_password(body: ResetPasswordRequest) -> MessageResponse:
         otp=body.otp,
         new_password=body.new_password,
     )
-    return MessageResponse(message="Password updated successfully. Please log in again.")
+    return MessageResponse(message="Password has been successfully reset.")
 
 
 @router.get(
@@ -127,14 +137,25 @@ async def me(current_user: User = Depends(get_current_user)) -> UserResponse:
         email=current_user.email,
         full_name=current_user.full_name,
         is_active=current_user.is_active,
+        email_verified=current_user.email_verified,
     )
+
+
+@router.post(
+    "/resend-verification-otp",
+    response_model=MessageResponse,
+    summary="Resend verification OTP",
+)
+async def resend_verification_otp(body: ResendOtpRequest) -> MessageResponse:
+    await service.resend_verification_otp(email=body.email)
+    return MessageResponse(message="If that email is registered and unverified, a new OTP has been sent.")
 
 
 @router.post(
     "/resend-otp",
     response_model=MessageResponse,
-    summary="Resend verification OTP",
+    summary="Deprecated: resend verification OTP",
+    deprecated=True,
 )
 async def resend_otp(body: ResendOtpRequest) -> MessageResponse:
-    await service.resend_verification_otp(email=body.email)
-    return MessageResponse(message="If that email is registered and inactive, a new OTP has been sent.")
+    return await resend_verification_otp(body)

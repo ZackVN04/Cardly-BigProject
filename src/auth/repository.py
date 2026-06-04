@@ -27,7 +27,8 @@ async def create_user(email: str, password_hash: str, full_name: str) -> User:
 
 
 async def activate_user(user: User) -> None:
-    user.is_active = True
+    user.email_verified = True
+    user.email_verified_at = datetime.utcnow()
     user.updated_at = datetime.utcnow()
     await user.save()
 

@@ -10,6 +10,7 @@ from email.message import EmailMessage
 import aiosmtplib
 
 from src.auth.config import auth_settings
+from src.auth.constants import OTP_PURPOSE_VERIFY_EMAIL
 
 
 async def _send(subject: str, body_html: str, to_email: str) -> None:
@@ -35,7 +36,7 @@ async def _send(subject: str, body_html: str, to_email: str) -> None:
 
 async def send_otp_email(to_email: str, otp: str, purpose: str) -> None:
     """Send the 6-digit OTP for email verification or password reset."""
-    if purpose == "verify_email":
+    if purpose == OTP_PURPOSE_VERIFY_EMAIL:
         subject = "Verify your Cardly account"
         action_label = "complete your registration"
     else:

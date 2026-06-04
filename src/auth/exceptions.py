@@ -40,7 +40,13 @@ class InvalidCredentialsError(AppException):
 class UserNotActiveError(AppException):
     status_code = 403
     code = "USER_NOT_ACTIVE"
-    message = "Account is not yet verified. Please check your email for the OTP."
+    message = "Account is inactive. Please contact support."
+
+
+class PasswordReuseError(AppException):
+    status_code = 400
+    code = "PASSWORD_REUSED"
+    message = "New password must be different from the current password."
 
 
 class UserAlreadyActiveError(AppException):

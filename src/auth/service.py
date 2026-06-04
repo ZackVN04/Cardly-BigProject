@@ -8,24 +8,26 @@ Rules:
 
 import base64
 import hashlib
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import bcrypt
 
 from src.auth import repository
 from src.auth.config import auth_settings
+from src.auth.constants import OTP_PURPOSE_RESET_PASSWORD, OTP_PURPOSE_VERIFY_EMAIL
 from src.auth.exceptions import (
     InvalidCredentialsError,
     OtpAlreadyUsedError,
     OtpExpiredError,
     OtpInvalidError,
+    PasswordReuseError,
     RefreshTokenInvalidError,
     UserAlreadyActiveError,
     UserAlreadyExistsError,
     UserNotActiveError,
     UserNotFoundError,
 )
-from src.auth.models import User
+from src.auth.models import OtpCode, User
 from src.auth.utils.email import send_otp_email
 from src.auth.utils.jwt import (
     create_access_token,
@@ -64,13 +66,13 @@ def _hash_token(raw_token: str) -> str:
 
 
 def _now_utc() -> datetime:
-    return datetime.now(tz=timezone.utc)
+    return datetime.now(tz=UTC)
 
 
 # ── Registration ──────────────────────────────────────────────────────────────
 
 async def register_user(email: str, password: str, full_name: str) -> None:
-    """Create a new inactive user and send an email-verification OTP."""
+    """Create an active account and send an email-verification OTP."""
     existing = await repository.get_user_by_email(email)
     if existing:
         raise UserAlreadyExistsError()
@@ -78,7 +80,7 @@ async def register_user(email: str, password: str, full_name: str) -> None:
     password_hash = _hash_password(password)
     await repository.create_user(email=email, password_hash=password_hash, full_name=full_name)
 
-    await _send_otp(email=email, purpose="verify_email")
+    await _send_otp(email=email, purpose=OTP_PURPOSE_VERIFY_EMAIL)
 
 
 # ── OTP Verification ──────────────────────────────────────────────────────────
@@ -88,10 +90,12 @@ async def verify_email_otp(email: str, otp: str) -> None:
     user = await repository.get_user_by_email(email)
     if not user:
         raise UserNotFoundError()
+    if user.email_verified:
+        raise UserAlreadyActiveError()
 
-    await _consume_otp(email=email, otp=otp, purpose="verify_email")
-
+    otp_record = await _validate_otp(email=email, otp=otp, purpose=OTP_PURPOSE_VERIFY_EMAIL)
     await repository.activate_user(user)
+    await repository.mark_otp_used(otp_record)
 
 
 # ── Login ─────────────────────────────────────────────────────────────────────
@@ -116,7 +120,7 @@ async def refresh_access_token(raw_refresh_token: str) -> dict:
     token_hash = _hash_token(raw_refresh_token)
 
     stored = await repository.get_refresh_token_by_hash(token_hash)
-    if not stored or stored.revoked or stored.expires_at.replace(tzinfo=timezone.utc) < _now_utc():
+    if not stored or stored.revoked or stored.expires_at.replace(tzinfo=UTC) < _now_utc():
         raise RefreshTokenInvalidError()
 
     # Rotate: revoke old token and issue a new pair
@@ -144,7 +148,7 @@ async def send_password_reset_otp(email: str) -> None:
     """
     user = await repository.get_user_by_email(email)
     if user and user.is_active:
-        await _send_otp(email=email, purpose="reset_password")
+        await _send_otp(email=email, purpose=OTP_PURPOSE_RESET_PASSWORD)
 
 
 # ── Reset Password ────────────────────────────────────────────────────────────
@@ -154,12 +158,14 @@ async def reset_password(email: str, otp: str, new_password: str) -> None:
     user = await repository.get_user_by_email(email)
     if not user:
         raise UserNotFoundError()
+    if _check_password(new_password, user.password_hash):
+        raise PasswordReuseError()
 
-    await _consume_otp(email=email, otp=otp, purpose="reset_password")
-
+    otp_record = await _validate_otp(email=email, otp=otp, purpose=OTP_PURPOSE_RESET_PASSWORD)
     new_hash = _hash_password(new_password)
     await repository.update_password(user, new_hash)
     await repository.revoke_all_refresh_tokens(user.id)
+    await repository.mark_otp_used(otp_record)
 
 
 # ── Private helpers ───────────────────────────────────────────────────────────
@@ -182,6 +188,12 @@ async def _send_otp(email: str, purpose: str) -> None:
 
 async def _consume_otp(email: str, otp: str, purpose: str) -> None:
     """Validate and mark an OTP as used.  Raises on any failure."""
+    otp_record = await _validate_otp(email=email, otp=otp, purpose=purpose)
+    await repository.mark_otp_used(otp_record)
+
+
+async def _validate_otp(email: str, otp: str, purpose: str) -> OtpCode:
+    """Return a valid OTP record without consuming it."""
     record = await repository.get_latest_otp(email=email, purpose=purpose)
 
     if not record:
@@ -190,13 +202,13 @@ async def _consume_otp(email: str, otp: str, purpose: str) -> None:
     if record.used:
         raise OtpAlreadyUsedError()
 
-    if record.expires_at.replace(tzinfo=timezone.utc) < _now_utc():
+    if record.expires_at.replace(tzinfo=UTC) < _now_utc():
         raise OtpExpiredError()
 
     if not verify_otp(otp, record.otp_hash):
         raise OtpInvalidError()
 
-    await repository.mark_otp_used(record)
+    return record
 
 
 async def _issue_token_pair(user_id: str) -> dict:
@@ -233,5 +245,7 @@ async def get_current_user(user_id: str) -> User:
 
 
 async def resend_verification_otp(email: str) -> None:
-    """Send a new verification OTP unconditionally."""
-    await _send_otp(email=email, purpose="verify_email")
+    """Send a new verification OTP for an existing unverified account."""
+    user = await repository.get_user_by_email(email)
+    if user and not user.email_verified:
+        await _send_otp(email=email, purpose=OTP_PURPOSE_VERIFY_EMAIL)

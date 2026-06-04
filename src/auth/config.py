@@ -9,7 +9,7 @@ class AuthConfig(BaseSettings):
     JWT_EXP: int = 15            # access token lifetime in minutes
     REFRESH_TOKEN_EXP: int = 7   # refresh token lifetime in days
 
-    OTP_EXP_MINUTES: int = 10    # OTP validity window
+    OTP_EXP_MINUTES: int = 5     # OTP validity window
 
     SMTP_HOST: str = "smtp.gmail.com"
     SMTP_PORT: int = 587

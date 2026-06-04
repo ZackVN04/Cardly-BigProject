@@ -10,7 +10,9 @@ class User(Document):
     email: Indexed(EmailStr, unique=True)  # type: ignore[valid-type]
     password_hash: str
     full_name: str
-    is_active: bool = False
+    is_active: bool = True
+    email_verified: bool = False
+    email_verified_at: datetime | None = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
