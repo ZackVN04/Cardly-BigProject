@@ -135,9 +135,9 @@ async def get_document_image(doc_id: str) -> dict[str, list[str]]:
 @router.delete(
     "/{doc_id}",
     response_model=schemas.DeleteResponse,
-    summary="Soft-delete a document",
+    summary="Hard-delete a document",
 )
 async def delete_document(doc_id: str) -> schemas.DeleteResponse:
-    """Soft-delete a document by setting its status to ``REJECTED_INVALID``."""
-    await service.soft_delete(processing_id=doc_id, user_id=MOCK_USER_ID)
+    """Permanently delete a document and all related data from DB and GCS."""
+    await service.hard_delete(processing_id=doc_id, user_id=MOCK_USER_ID)
     return schemas.DeleteResponse(processing_id=doc_id)

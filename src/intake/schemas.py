@@ -41,7 +41,7 @@ class DocumentListResponse(CustomModel):
 
 
 class DeleteResponse(CustomModel):
-    """Response returned after a successful document soft-delete."""
+    """Response returned after a successful document hard-delete."""
 
     processing_id: str
     status: str = "deleted"
