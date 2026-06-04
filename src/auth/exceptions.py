@@ -67,3 +67,14 @@ class AccessTokenInvalidError(AppException):
     status_code = 401
     code = "ACCESS_TOKEN_INVALID"
     message = "Access token is invalid or expired."
+
+
+class ResetTokenInvalidError(AppException):
+    status_code = 400
+    code = "RESET_TOKEN_INVALID"
+    message = "Password reset token is invalid or has expired. Please request a new OTP."
+
+class UserNotFound(AppException):
+    status_code = 404
+    code = "USER_NOT_FOUND"
+    message = "No account found with that email address."
