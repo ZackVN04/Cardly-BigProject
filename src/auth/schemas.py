@@ -48,9 +48,15 @@ class ForgotPasswordRequest(CustomModel):
     email: EmailStr
 
 
-class ResetPasswordRequest(CustomModel):
+class VerifyResetOtpRequest(CustomModel):
+    """Step 1 of password reset: verify the OTP that was emailed to the user."""
     email: EmailStr
     otp: str = Field(min_length=6, max_length=6, pattern=r"^\d{6}$")
+
+
+class ResetPasswordRequest(CustomModel):
+    """Step 2 of password reset: use the reset_token from OTP verification to set a new password."""
+    reset_token: str = Field(min_length=1)
     new_password: str = Field(min_length=8)
 
     @field_validator("new_password")
@@ -83,3 +89,13 @@ class MessageResponse(CustomModel):
     """Generic success response for operations that return no data."""
     success: bool = True
     message: str
+
+
+class VerifyResetOtpResponse(CustomModel):
+    """Returned by POST /verify-reset-otp on success.
+
+    The client must present reset_token in the subsequent POST /reset-password
+    request.  The token is short-lived (see RESET_TOKEN_EXP_MINUTES).
+    """
+    reset_token: str
+    expires_in: int  # seconds until the reset_token expires

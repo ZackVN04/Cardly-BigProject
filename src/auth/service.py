@@ -8,19 +8,22 @@ Rules:
 
 import base64
 import hashlib
+import secrets
 from datetime import datetime, timedelta, timezone
 
 import bcrypt
 
 from src.auth import repository
 from src.auth.config import auth_settings
+from src.auth.constants import RESET_TOKEN_PREFIX
 from src.auth.exceptions import (
     InvalidCredentialsError,
     OtpAlreadyUsedError,
     OtpExpiredError,
     OtpInvalidError,
     RefreshTokenInvalidError,
-    UserAlreadyActiveError,
+    ResetTokenInvalidError,
+    UserAlreadyActiveError,  # noqa: F401 — kept for potential future use
     UserAlreadyExistsError,
     UserNotActiveError,
     UserNotFoundError,
@@ -33,6 +36,7 @@ from src.auth.utils.jwt import (
     decode_refresh_token,
 )
 from src.auth.utils.otp import generate_otp, hash_otp, verify_otp
+from src.common.redis_client import get_redis
 
 _BCRYPT_ROUNDS = 12
 
@@ -147,19 +151,65 @@ async def send_password_reset_otp(email: str) -> None:
         await _send_otp(email=email, purpose="reset_password")
 
 
-# ── Reset Password ────────────────────────────────────────────────────────────
+# ── Verify Reset OTP ──────────────────────────────────────────────────────────
 
-async def reset_password(email: str, otp: str, new_password: str) -> None:
-    """Validate OTP, update password hash, and revoke all existing sessions."""
+async def verify_reset_otp(email: str, otp: str) -> dict:
+    """Validate the password-reset OTP and issue a short-lived reset token.
+
+    Flow:
+    1. Confirm the user exists.
+    2. Consume the OTP (validates, checks expiry & reuse, marks as used).
+    3. Generate a cryptographically random reset_token and store it in Redis
+       with a TTL of RESET_TOKEN_EXP_MINUTES.  The value stored is the email
+       address so the subsequent reset step doesn't need the client to send it.
+    4. Return the reset_token and its TTL so the client knows how long it has.
+    """
     user = await repository.get_user_by_email(email)
     if not user:
         raise UserNotFoundError()
 
     await _consume_otp(email=email, otp=otp, purpose="reset_password")
 
+    reset_token = secrets.token_hex(32)
+    ttl_seconds = auth_settings.RESET_TOKEN_EXP_MINUTES * 60
+
+    redis = await get_redis()
+    await redis.set(f"{RESET_TOKEN_PREFIX}{reset_token}", email, ex=ttl_seconds)
+
+    return {"reset_token": reset_token, "expires_in": ttl_seconds}
+
+
+# ── Reset Password ────────────────────────────────────────────────────────────
+
+async def reset_password(reset_token: str, new_password: str) -> None:
+    """Validate the reset token, update the password, and revoke all sessions.
+
+    Flow:
+    1. Look up the reset_token in Redis — raises ResetTokenInvalidError if
+       missing or already expired.
+    2. Fetch the user by the email stored in Redis.
+    3. Hash and persist the new password.
+    4. Revoke all active refresh tokens for the user (force re-login).
+    5. Delete the Redis key explicitly so the token cannot be reused within
+       its remaining TTL.
+    """
+    redis = await get_redis()
+    redis_key = f"{RESET_TOKEN_PREFIX}{reset_token}"
+    email: str | None = await redis.get(redis_key)
+
+    if not email:
+        raise ResetTokenInvalidError()
+
+    user = await repository.get_user_by_email(email)
+    if not user:
+        raise UserNotFoundError()
+
     new_hash = _hash_password(new_password)
     await repository.update_password(user, new_hash)
     await repository.revoke_all_refresh_tokens(user.id)
+
+    # Invalidate the reset token immediately so it cannot be reused.
+    await redis.delete(redis_key)
 
 
 # ── Private helpers ───────────────────────────────────────────────────────────

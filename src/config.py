@@ -17,7 +17,11 @@ class Config(BaseSettings):
     MONGODB_URL: str
     REDIS_URL: str = "redis://localhost:6379/0"
 
-    CORS_ORIGINS: list[str] = ["http://localhost:3000", "http://localhost:5173", "https://cardly-web-official.vercel.app"]
+    CORS_ORIGINS: list[str] = [
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "https://cardly-web-official.vercel.app",
+    ]
     SENTRY_DSN: str | None = None
 
     GOOGLE_SERVICE_ACCOUNT_JSON: dict | None = None
