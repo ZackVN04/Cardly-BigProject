@@ -125,7 +125,7 @@ async def run_ocr_pipeline(processing_id: str, user: User) -> tuple[BusinessCard
     cardscan: BusinessCardScan
     
     cardscan, raw_extracted_dict, ocr_blocks = await pipline_ocr_to_llm(
-        images_data,
+        images_raw,
         str(user.id),
         processing_id
     )
