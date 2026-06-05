@@ -8,6 +8,7 @@ from src.config import settings
 from src.constants import SHOW_DOCS_ENVIRONMENTS
 from src.database import init_db
 from src.exceptions import AppException, app_exception_handler, unhandled_exception_handler
+from src.ocr.clients.paddle_client import get_ocr_engine
 
 # Routers — uncomment each as the package is implemented
 from src.auth.router import router as auth_router
@@ -20,6 +21,7 @@ from src.enrichment.router import router as enrichment_router
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     await init_db()
+    get_ocr_engine()  # warm-up: download & load PaddleOCR models at startup
     yield
 
 
